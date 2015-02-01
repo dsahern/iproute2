@@ -48,7 +48,7 @@ static void usage(void)
 "       ip [ -force ] -batch filename\n"
 "where  OBJECT := { link | addr | addrlabel | route | rule | neigh | ntable |\n"
 "                   tunnel | tuntap | maddr | mroute | mrule | monitor | xfrm |\n"
-"                   netns | l2tp | fou | tcp_metrics | token | netconf }\n"
+"                   netns | vrf | l2tp | fou | tcp_metrics | token | netconf }\n"
 "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
 "                    -h[uman-readable] | -iec |\n"
 "                    -f[amily] { inet | inet6 | ipx | dnet | bridge | link } |\n"
@@ -93,6 +93,7 @@ static const struct cmd {
 	{ "mroute",	do_multiroute },
 	{ "mrule",	do_multirule },
 	{ "netns",	do_netns },
+	{ "vrf",	do_vrf },
 	{ "netconf",	do_ipnetconf },
 	{ "help",	do_help },
 	{ 0 }
