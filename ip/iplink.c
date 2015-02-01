@@ -72,6 +72,7 @@ void iplink_usage(void)
 	fprintf(stderr, "	                  [ mtu MTU ]\n");
 	fprintf(stderr, "	                  [ netns PID ]\n");
 	fprintf(stderr, "	                  [ netns NAME ]\n");
+	fprintf(stderr, "	                  [ vrf ID]\n");
 	fprintf(stderr, "			  [ alias NAME ]\n");
 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
 	fprintf(stderr, "				   [ vlan VLANID [ qos VLAN-QOS ] ]\n");
@@ -383,6 +384,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
 	int mtu = -1;
 	int netns = -1;
 	int vf = -1;
+	int vrf = -1;
 	int numtxqueues = -1;
 	int numrxqueues = -1;
 	int dev_index = 0;
@@ -447,6 +449,13 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
 				addattr_l(&req->n, sizeof(*req), IFLA_NET_NS_PID, &netns, 4);
 			else
 				invarg("Invalid \"netns\" value\n", *argv);
+		} else if (strcmp(*argv, "vrf") == 0) {
+			NEXT_ARG();
+			if (vrf != -1)
+				duparg("vrf", *argv);
+			if (get_integer(&vrf, *argv, 0))
+				invarg("Invalid \"vrf\" value\n", *argv);
+			addattr_l(&req->n, sizeof(*req), IFLA_VRF, &vrf, 4);
 		} else if (strcmp(*argv, "multicast") == 0) {
 			NEXT_ARG();
 			req->i.ifi_change |= IFF_MULTICAST;

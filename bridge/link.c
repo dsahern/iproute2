@@ -146,6 +146,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
 
 	print_link_flags(fp, ifi->ifi_flags);
 
+	if (tb[IFLA_VRF])
+		fprintf(fp, "vrf %u ", rta_getattr_u32(tb[IFLA_VRF]));
+
 	if (tb[IFLA_MTU])
 		fprintf(fp, "mtu %u ", rta_getattr_u32(tb[IFLA_MTU]));
 

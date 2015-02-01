@@ -625,6 +625,8 @@ int print_linkinfo(const struct sockaddr_nl *who,
 
 	if (tb[IFLA_MTU])
 		fprintf(fp, "mtu %u ", *(int*)RTA_DATA(tb[IFLA_MTU]));
+	if (tb[IFLA_VRF])
+		fprintf(fp, "vrf %u ", *(int*)RTA_DATA(tb[IFLA_VRF]));
 	if (tb[IFLA_QDISC])
 		fprintf(fp, "qdisc %s ", rta_getattr_str(tb[IFLA_QDISC]));
 	if (tb[IFLA_MASTER]) {
