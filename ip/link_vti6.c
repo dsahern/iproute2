@@ -193,7 +193,8 @@ get_failed:
 	return 0;
 }
 
-static void vti6_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void vti6_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[],
+			   bool select_fields)
 {
 	char s2[64];
 	const char *local = "any";
@@ -201,7 +202,7 @@ static void vti6_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
 	struct in6_addr saddr;
 	struct in6_addr daddr;
 
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_VTI_REMOTE]) {

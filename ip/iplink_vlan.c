@@ -194,13 +194,14 @@ static void vlan_print_flags(FILE *fp, __u32 flags)
 	fprintf(fp, "> ");
 }
 
-static void vlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void vlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[],
+			   bool select_fields)
 {
 	struct ifla_vlan_flags *flags;
 
 	SPRINT_BUF(b1);
 
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_VLAN_PROTOCOL] &&

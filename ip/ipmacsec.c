@@ -1011,9 +1011,10 @@ int do_ipmacsec(int argc, char **argv)
 }
 
 /* device creation */
-static void macsec_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void macsec_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[],
+			     bool select_fields)
 {
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_MACSEC_SCI]) {

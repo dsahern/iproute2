@@ -68,6 +68,60 @@ static int do_link;
 
 static void usage(void) __attribute__((noreturn));
 
+
+/*
+ * IFLA attributes common to all link messages
+ */
+struct {
+	const char *name;
+	int bit;
+	unsigned int attr;
+} common_attr_opts[] = {
+	{ .name = "addr",	.attr = IFLA_ADDRESS },
+	{ .name = "mtu",	.attr = IFLA_MTU     },
+	{ .name = "master",	.attr = IFLA_MASTER  },
+	{ .name = "qdisc",	.attr = IFLA_QDISC   },
+};
+
+/* array of which link attributes to print */
+static bool show_attr[IFLA_MAX+1];
+static bool show_ifindex, show_link_flags;
+static bool select_fields;
+
+static bool print_common_attr(unsigned int attr)
+{
+	if (!select_fields)
+		return true;
+
+	if (attr > IFLA_MAX)
+		return false;
+
+	return show_attr[attr];
+}
+
+static int parse_field_common(char *token)
+{
+	int i;
+
+	/* entries from header struct */
+	if (!strcmp(token, "ifindex")) {
+		show_ifindex = true;
+		return 0;
+	} else if (!strcmp(token, "lflags")) {
+		show_link_flags = true;
+		return 0;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(common_attr_opts); i++) {
+		if (!strcmp(common_attr_opts[i].name, token)) {
+			show_attr[common_attr_opts[i].attr] = true;
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 static void usage(void)
 {
 	if (do_link) {
@@ -104,6 +158,9 @@ static void usage(void)
 
 static void print_link_flags(FILE *fp, unsigned int flags, unsigned int mdown)
 {
+	if (select_fields && !show_link_flags)
+		return;
+
 	fprintf(fp, "<");
 	if (flags & IFF_UP && !(flags & IFF_RUNNING))
 		fprintf(fp, "NO-CARRIER%s", flags ? "," : "");
@@ -241,8 +298,10 @@ static void print_linktype(FILE *fp, struct rtattr *tb)
 	if (linkinfo[IFLA_INFO_KIND]) {
 		kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
 
-		fprintf(fp, "%s", _SL_);
-		fprintf(fp, "    %s ", kind);
+		if (!select_fields) {
+			fprintf(fp, "%s", _SL_);
+			fprintf(fp, "    %s ", kind);
+		}
 
 		lu = get_link_kind(kind);
 		if (lu && lu->print_opt) {
@@ -253,7 +312,7 @@ static void print_linktype(FILE *fp, struct rtattr *tb)
 						    linkinfo[IFLA_INFO_DATA]);
 				data = attr;
 			}
-			lu->print_opt(lu, fp, data);
+			lu->print_opt(lu, fp, data, select_fields);
 
 			if (linkinfo[IFLA_INFO_XSTATS] && show_stats &&
 			    lu->print_xstats)
@@ -264,8 +323,10 @@ static void print_linktype(FILE *fp, struct rtattr *tb)
 	if (linkinfo[IFLA_INFO_SLAVE_KIND]) {
 		slave_kind = RTA_DATA(linkinfo[IFLA_INFO_SLAVE_KIND]);
 
-		fprintf(fp, "%s", _SL_);
-		fprintf(fp, "    %s_slave ", slave_kind);
+		if (!select_fields) {
+			fprintf(fp, "%s", _SL_);
+			fprintf(fp, "    %s_slave ", slave_kind);
+		}
 		snprintf(slave, sizeof(slave), "%s_slave", slave_kind);
 
 		slave_lu = get_link_kind(slave);
@@ -277,7 +338,7 @@ static void print_linktype(FILE *fp, struct rtattr *tb)
 						    linkinfo[IFLA_INFO_SLAVE_DATA]);
 				data = attr;
 			}
-			slave_lu->print_opt(slave_lu, fp, data);
+			slave_lu->print_opt(slave_lu, fp, data, select_fields);
 		}
 	}
 }
@@ -758,6 +819,43 @@ int print_linkinfo_brief(const struct sockaddr_nl *who,
 	return 0;
 }
 
+static void print_ifindex(FILE *fp, int ifindex)
+{
+	if (!select_fields || show_ifindex)
+		fprintf(fp, "%4d: ", ifindex);
+}
+
+static void print_name(FILE *fp, struct rtattr *tb[],
+		       unsigned int *m_flag)
+{
+	const char *ifname;
+
+	ifname = "<nil>";
+	if (tb[IFLA_IFNAME])
+		ifname = rta_getattr_str(tb[IFLA_IFNAME]);
+
+	color_fprintf(fp, COLOR_IFNAME, "%s", ifname);
+
+	if (tb[IFLA_LINK]) {
+		SPRINT_BUF(b1);
+		int iflink = *(int *)RTA_DATA(tb[IFLA_LINK]);
+
+		if (iflink == 0)
+			fprintf(fp, "@NONE");
+		else {
+			if (tb[IFLA_LINK_NETNSID])
+				fprintf(fp, "@if%d", iflink);
+			else {
+				fprintf(fp, "@%s", ll_idx_n2a(iflink, b1));
+				*m_flag = ll_index_to_flags(iflink);
+				*m_flag = !(*m_flag & IFF_UP);
+			}
+		}
+	}
+
+	fprintf(fp, ": ");
+}
+
 int print_linkinfo(const struct sockaddr_nl *who,
 		   struct nlmsghdr *n, void *arg)
 {
@@ -812,56 +910,39 @@ int print_linkinfo(const struct sockaddr_nl *who,
 	if (n->nlmsg_type == RTM_DELLINK)
 		fprintf(fp, "Deleted ");
 
-	fprintf(fp, "%d: ", ifi->ifi_index);
-	color_fprintf(fp, COLOR_IFNAME, "%s",
-		      tb[IFLA_IFNAME] ? rta_getattr_str(tb[IFLA_IFNAME]) : "<nil>");
-
-	if (tb[IFLA_LINK]) {
-		SPRINT_BUF(b1);
-		int iflink = *(int *)RTA_DATA(tb[IFLA_LINK]);
-
-		if (iflink == 0)
-			fprintf(fp, "@NONE: ");
-		else {
-			if (tb[IFLA_LINK_NETNSID])
-				fprintf(fp, "@if%d: ", iflink);
-			else {
-				fprintf(fp, "@%s: ", ll_idx_n2a(iflink, b1));
-				m_flag = ll_index_to_flags(iflink);
-				m_flag = !(m_flag & IFF_UP);
-			}
-		}
-	} else {
-		fprintf(fp, ": ");
-	}
+	print_ifindex(fp, ifi->ifi_index);
+	print_name(fp, tb, &m_flag);
 	print_link_flags(fp, ifi->ifi_flags, m_flag);
 
-	if (tb[IFLA_MTU])
+	if (print_common_attr(IFLA_MTU) && tb[IFLA_MTU])
 		fprintf(fp, "mtu %u ", *(int *)RTA_DATA(tb[IFLA_MTU]));
-	if (tb[IFLA_QDISC])
+
+	if (print_common_attr(IFLA_QDISC) && tb[IFLA_QDISC])
 		fprintf(fp, "qdisc %s ", rta_getattr_str(tb[IFLA_QDISC]));
-	if (tb[IFLA_MASTER]) {
+
+	if (print_common_attr(IFLA_MASTER) && tb[IFLA_MASTER]) {
 		SPRINT_BUF(b1);
 		fprintf(fp, "master %s ", ll_idx_n2a(*(int *)RTA_DATA(tb[IFLA_MASTER]), b1));
 	}
 
-	if (tb[IFLA_OPERSTATE])
+	if (!select_fields && tb[IFLA_OPERSTATE])
 		print_operstate(fp, rta_getattr_u8(tb[IFLA_OPERSTATE]));
 
-	if (do_link && tb[IFLA_LINKMODE])
+	if (!select_fields && do_link && tb[IFLA_LINKMODE])
 		print_linkmode(fp, tb[IFLA_LINKMODE]);
 
-	if (tb[IFLA_GROUP]) {
+	if (!select_fields && tb[IFLA_GROUP]) {
 		SPRINT_BUF(b1);
 		int group = *(int *)RTA_DATA(tb[IFLA_GROUP]);
 
 		fprintf(fp, "group %s ", rtnl_group_n2a(group, b1, sizeof(b1)));
 	}
 
-	if (filter.showqueue)
+	if (!select_fields && filter.showqueue)
 		print_queuelen(fp, tb);
 
-	if (!filter.family || filter.family == AF_PACKET || show_details) {
+	if (print_common_attr(IFLA_ADDRESS) &&
+	    (!filter.family || filter.family == AF_PACKET || show_details)) {
 		SPRINT_BUF(b1);
 		fprintf(fp, "%s", _SL_);
 		fprintf(fp, "    link/%s ", ll_type_n2a(ifi->ifi_type, b1, sizeof(b1)));
@@ -886,7 +967,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
 		}
 	}
 
-	if (tb[IFLA_LINK_NETNSID]) {
+	if (!select_fields && tb[IFLA_LINK_NETNSID]) {
 		int id = *(int *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
 
 		if (id >= 0)
@@ -895,19 +976,21 @@ int print_linkinfo(const struct sockaddr_nl *who,
 			fprintf(fp, " link-netnsid unknown");
 	}
 
-	if (tb[IFLA_PROTO_DOWN]) {
+	if (!select_fields && tb[IFLA_PROTO_DOWN]) {
 		if (rta_getattr_u8(tb[IFLA_PROTO_DOWN]))
 			fprintf(fp, " protodown on ");
 	}
 
-	if (show_details) {
+	if (!select_fields && show_details) {
 		if (tb[IFLA_PROMISCUITY])
 			fprintf(fp, " promiscuity %u ",
 				*(int *)RTA_DATA(tb[IFLA_PROMISCUITY]));
+	}
 
-		if (tb[IFLA_LINKINFO])
-			print_linktype(fp, tb[IFLA_LINKINFO]);
+	if ((select_fields || show_details) && tb[IFLA_LINKINFO])
+		print_linktype(fp, tb[IFLA_LINKINFO]);
 
+	if (!select_fields && show_details) {
 		if (do_link && tb[IFLA_AF_SPEC])
 			print_af_spec(fp, tb[IFLA_AF_SPEC]);
 
@@ -949,7 +1032,7 @@ int print_linkinfo(const struct sockaddr_nl *who,
 	}
 
 
-	if ((do_link || show_details) && tb[IFLA_IFALIAS]) {
+	if ((do_link || show_details) && !select_fields && tb[IFLA_IFALIAS]) {
 		fprintf(fp, "%s    alias %s", _SL_,
 			rta_getattr_str(tb[IFLA_IFALIAS]));
 	}
@@ -959,7 +1042,8 @@ int print_linkinfo(const struct sockaddr_nl *who,
 		__print_link_stats(fp, tb);
 	}
 
-	if ((do_link || show_details) && tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
+	if ((do_link || show_details) && !select_fields &&
+	     tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
 		struct rtattr *i, *vflist = tb[IFLA_VFINFO_LIST];
 		int rem = RTA_PAYLOAD(vflist);
 
@@ -1537,6 +1621,62 @@ static int iplink_filter_req(struct nlmsghdr *nlh, int reqlen)
 	return 0;
 }
 
+static void parse_field_arg(char *arg)
+{
+	char *delim, *delim2, *kind;
+	struct link_util *lu;
+
+	/* comma separated list of fields to print */
+	while (1) {
+		delim = strchr(arg, ',');
+		if (delim)
+			*delim = '\0';
+
+		delim2 = strchr(arg, ':');
+		if (delim2) {
+			kind = arg;
+			*delim2 = '\0';
+			arg = delim2++;
+
+			lu = get_link_kind(kind);
+			if (!lu || !lu->parse_print_opt ||
+			    lu->parse_print_opt(lu, arg))
+				invarg("invalid \"field\"\n", arg);
+
+		} else if (parse_field_common(arg) != 0) {
+			/* not a field for a common attribute. If kind
+			 * or slave kind has been given perhaps the arg
+			 * applies there
+			 */
+			if (filter.kind) {
+				lu = get_link_kind(filter.kind);
+				if (lu && lu->parse_print_opt &&
+				    !lu->parse_print_opt(lu, arg))
+					goto next;
+			}
+
+			if (filter.slave_kind) {
+				char slave[32];
+
+				snprintf(slave, sizeof(slave), "%s_slave",
+					 filter.slave_kind);
+				lu = get_link_kind(slave);
+				if (lu && lu->parse_print_opt &&
+				    !lu->parse_print_opt(lu, arg))
+					goto next;
+			}
+
+			invarg("invalid \"field\"; perhaps a 'kind' needs to be prepended\n", arg);
+		}
+
+next:
+		if (!delim)
+			break;
+
+		arg = delim + 1;
+	}
+}
+
 static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
 {
 	struct nlmsg_chain linfo = { NULL, NULL};
@@ -1664,6 +1804,12 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
 			} else {
 				filter.kind = *argv;
 			}
+		} else if (action == IPADD_LIST &&
+			   matches(*argv, "field") == 0) {
+			NEXT_ARG();
+			parse_field_arg(*argv);
+			select_fields = true;
+			brief = false;
 		} else {
 			if (strcmp(*argv, "dev") == 0)
 				NEXT_ARG();
@@ -1749,7 +1895,7 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
 		int res = 0;
 		struct ifinfomsg *ifi = NLMSG_DATA(&l->h);
 
-		if (brief) {
+		if (brief && !select_fields) {
 			if (print_linkinfo_brief(NULL, &l->h, stdout) == 0)
 				if (filter.family != AF_PACKET)
 					print_selected_addrinfo(ifi,

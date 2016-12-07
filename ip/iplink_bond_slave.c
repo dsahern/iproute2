@@ -59,10 +59,11 @@ static void print_slave_mii_status(FILE *f, struct rtattr *tb)
 		fprintf(f, "mii_status %s ", slave_mii_status[status]);
 }
 
-static void bond_slave_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void bond_slave_print_opt(struct link_util *lu, FILE *f,
+				 struct rtattr *tb[], bool select_fields)
 {
 	SPRINT_BUF(b1);
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_BOND_SLAVE_STATE])

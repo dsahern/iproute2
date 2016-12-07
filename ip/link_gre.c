@@ -418,9 +418,10 @@ static void gre_print_direct_opt(FILE *f, struct rtattr *tb[])
 		fputs("ocsum ", f);
 }
 
-static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[],
+			  bool select_fields)
 {
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (!tb[IFLA_GRE_COLLECT_METADATA])

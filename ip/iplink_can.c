@@ -250,9 +250,10 @@ static const char *can_state_names[] = {
 	[CAN_STATE_SLEEPING] = "SLEEPING"
 };
 
-static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void can_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[],
+			  bool select_fields)
 {
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_CAN_CTRLMODE]) {

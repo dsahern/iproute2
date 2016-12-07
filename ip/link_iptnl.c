@@ -332,14 +332,15 @@ get_failed:
 	return 0;
 }
 
-static void iptunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void iptunnel_print_opt(struct link_util *lu, FILE *f,
+			       struct rtattr *tb[], bool select_fields)
 {
 	char s1[1024];
 	char s2[64];
 	const char *local = "any";
 	const char *remote = "any";
 
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_IPTUN_REMOTE]) {

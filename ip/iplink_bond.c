@@ -367,11 +367,12 @@ static int bond_parse_opt(struct link_util *lu, int argc, char **argv,
 	return 0;
 }
 
-static void bond_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void bond_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[],
+			   bool select_fields)
 {
 	unsigned int ifindex;
 
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_BOND_MODE]) {

@@ -328,9 +328,10 @@ static int bridge_parse_opt(struct link_util *lu, int argc, char **argv,
 	return 0;
 }
 
-static void bridge_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void bridge_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[],
+			     bool select_fields)
 {
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_BR_FORWARD_DELAY])

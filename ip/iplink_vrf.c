@@ -18,6 +18,8 @@
 #include "utils.h"
 #include "ip_common.h"
 
+#define VRF_PRINT_TABLE (1 << 0)
+
 static void vrf_explain(FILE *f)
 {
 	fprintf(f, "Usage: ... vrf table TABLEID\n");
@@ -55,22 +57,36 @@ static int vrf_parse_opt(struct link_util *lu, int argc, char **argv,
 	return 0;
 }
 
-static void vrf_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static int vrf_parse_print_opt(struct link_util *lu, const char *token)
+{
+	if (matches(token, "table") == 0)
+		lu->print_mask |= VRF_PRINT_TABLE;
+	else
+		return -1;
+
+	return 0;
+}
+
+static void vrf_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[],
+			  bool select_fields)
 {
 	if (!tb)
 		return;
 
-	if (tb[IFLA_VRF_TABLE])
-		fprintf(f, "table %u ", rta_getattr_u32(tb[IFLA_VRF_TABLE]));
+	if (!tb[IFLA_VRF_TABLE])
+		return;
+
+	if (!select_fields || (lu->print_mask & VRF_PRINT_TABLE))
+		fprintf(f, "table %u", rta_getattr_u32(tb[IFLA_VRF_TABLE]));
 }
 
 static void vrf_slave_print_opt(struct link_util *lu, FILE *f,
-				struct rtattr *tb[])
+				struct rtattr *tb[], bool select_fields)
 {
-	if (!tb)
+	if (!tb || !tb[IFLA_VRF_PORT_TABLE])
 		return;
 
-	if (tb[IFLA_VRF_PORT_TABLE]) {
+	if (!select_fields || (lu->print_mask & VRF_PRINT_TABLE)) {
 		fprintf(f, "table %u ",
 			rta_getattr_u32(tb[IFLA_VRF_PORT_TABLE]));
 	}
@@ -86,6 +102,7 @@ struct link_util vrf_link_util = {
 	.id		= "vrf",
 	.maxattr	= IFLA_VRF_MAX,
 	.parse_opt	= vrf_parse_opt,
+	.parse_print_opt = vrf_parse_print_opt,
 	.print_opt	= vrf_print_opt,
 	.print_help	= vrf_print_help,
 };
@@ -93,6 +110,7 @@ struct link_util vrf_link_util = {
 struct link_util vrf_slave_link_util = {
 	.id             = "vrf_slave",
 	.maxattr        = IFLA_VRF_PORT_MAX,
+	.parse_print_opt = vrf_parse_print_opt,
 	.print_opt	= vrf_slave_print_opt,
 };
 

@@ -309,13 +309,14 @@ get_failed:
 	return 0;
 }
 
-static void ip6tunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void ip6tunnel_print_opt(struct link_util *lu, FILE *f,
+				struct rtattr *tb[], bool select_fields)
 {
 	char s2[64];
 	int flags = 0;
 	__u32 flowinfo = 0;
 
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_IPTUN_FLAGS])

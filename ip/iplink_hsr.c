@@ -90,11 +90,12 @@ static int hsr_parse_opt(struct link_util *lu, int argc, char **argv,
 	return 0;
 }
 
-static void hsr_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void hsr_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[],
+			  bool select_fields)
 {
 	SPRINT_BUF(b1);
 
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_HSR_SLAVE1] &&

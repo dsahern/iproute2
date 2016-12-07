@@ -175,7 +175,8 @@ static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
 	return 0;
 }
 
-static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void macvlan_print_opt(struct link_util *lu, FILE *f,
+			      struct rtattr *tb[], bool select_fields)
 {
 	__u32 mode;
 	__u16 flags;
@@ -184,7 +185,7 @@ static void macvlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[]
 	int len;
 	struct rtattr *rta;
 
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (!tb[IFLA_MACVLAN_MODE] ||

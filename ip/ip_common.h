@@ -76,10 +76,14 @@ struct link_util {
 	struct link_util	*next;
 	const char		*id;
 	int			maxattr;
+	__u64			print_mask;
 	int			(*parse_opt)(struct link_util *, int, char **,
 					     struct nlmsghdr *);
+	int			(*parse_print_opt)(struct link_util *,
+						   const char *);
 	void			(*print_opt)(struct link_util *, FILE *,
-					     struct rtattr *[]);
+					     struct rtattr *[],
+					     bool select_fields);
 	void			(*print_xstats)(struct link_util *, FILE *,
 					     struct rtattr *);
 	void			(*print_help)(struct link_util *, int, char **,

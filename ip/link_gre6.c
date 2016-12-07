@@ -356,7 +356,8 @@ get_failed:
 	return 0;
 }
 
-static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[],
+			  bool select_fields)
 {
 	char s2[64];
 	const char *local = "any";
@@ -367,7 +368,7 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
 	unsigned int flowinfo = 0;
 	struct in6_addr in6_addr_any = IN6ADDR_ANY_INIT;
 
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_GRE_FLAGS])

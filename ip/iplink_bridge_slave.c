@@ -64,9 +64,9 @@ static void print_onoff(FILE *f, char *flag, __u8 val)
 }
 
 static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
-				   struct rtattr *tb[])
+				   struct rtattr *tb[], bool select_fields)
 {
-	if (!tb)
+	if (!tb || select_fields)
 		return;
 
 	if (tb[IFLA_BRPORT_STATE])
