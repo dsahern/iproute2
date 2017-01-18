@@ -384,6 +384,39 @@ static void print_oif_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
 		fprintf(fp, "dev %s ", ll_index_to_name(*(int *)RTA_DATA(tb)));
 }
 
+static void print_table(FILE *fp, struct rtmsg *r, struct rtattr *tb)
+{
+	__u32 table = r->rtm_table;
+
+	SPRINT_BUF(b1);
+
+	if (tb)
+		table = rta_getattr_u32(tb);
+
+	if (table && (table != RT_TABLE_MAIN || show_details > 0) &&
+	    !filter.tb)
+		fprintf(fp, "table %s ",
+			rtnl_rttable_n2a(table, b1, sizeof(b1)));
+}
+
+static void print_proto_scope(FILE *fp, struct rtmsg *r)
+{
+	SPRINT_BUF(b1);
+
+	if (r->rtm_flags & RTM_F_CLONED)
+		return;
+
+	if ((r->rtm_protocol != RTPROT_BOOT || show_details > 0) &&
+	    filter.protocolmask != -1)
+		fprintf(fp, "proto %s ",
+			rtnl_rtprot_n2a(r->rtm_protocol, b1, sizeof(b1)));
+
+	if ((r->rtm_scope != RT_SCOPE_UNIVERSE || show_details > 0) &&
+	    filter.scopemask != -1)
+		fprintf(fp, "scope %s ",
+			rtnl_rtscope_n2a(r->rtm_scope, b1, sizeof(b1)));
+}
+
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
@@ -391,7 +424,6 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	int len = n->nlmsg_len;
 	struct rtattr *tb[RTA_MAX+1];
 	int host_len;
-	__u32 table;
 
 	SPRINT_BUF(b1);
 	static int hz;
@@ -412,7 +444,6 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	host_len = af_bit_len(r->rtm_family);
 
 	parse_rtattr(tb, RTA_MAX, RTM_RTA(r), len);
-	table = rtm_get_table(r, tb);
 
 	if (!filter_nlmsg(n, tb, host_len))
 		return 0;
@@ -455,14 +486,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	print_via_attr(fp, r, tb[RTA_VIA]);
 	print_oif_attr(fp, r, tb[RTA_OIF]);
 
-	if (table && (table != RT_TABLE_MAIN || show_details > 0) && !filter.tb)
-		fprintf(fp, "table %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
-	if (!(r->rtm_flags&RTM_F_CLONED)) {
-		if ((r->rtm_protocol != RTPROT_BOOT || show_details > 0) && filter.protocolmask != -1)
-			fprintf(fp, "proto %s ", rtnl_rtprot_n2a(r->rtm_protocol, b1, sizeof(b1)));
-		if ((r->rtm_scope != RT_SCOPE_UNIVERSE || show_details > 0) && filter.scopemask != -1)
-			fprintf(fp, "scope %s ", rtnl_rtscope_n2a(r->rtm_scope, b1, sizeof(b1)));
-	}
+	print_table(fp, r, tb[RTA_TABLE]);
+	print_proto_scope(fp, r);
+
 	if (tb[RTA_PREFSRC] && filter.rprefsrc.bitlen != host_len) {
 		/* Do not use format_host(). It is our local addr
 		   and symbolic name will not be useful.
