@@ -417,6 +417,41 @@ static void print_proto_scope(FILE *fp, struct rtmsg *r)
 			rtnl_rtscope_n2a(r->rtm_scope, b1, sizeof(b1)));
 }
 
+static void print_prefsrc_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
+{
+	int host_len = af_bit_len(r->rtm_family);
+
+	if (tb && filter.rprefsrc.bitlen != host_len) {
+		/* Do not use format_host(). It is our local addr
+		 * and symbolic name will not be useful.
+		 */
+		fprintf(fp, "src %s ",
+			rt_addr_n2a_rta(r->rtm_family, tb));
+	}
+}
+
+static void print_prio_attr(FILE *fp, struct rtattr *tb)
+{
+	if (tb)
+		fprintf(fp, "metric %u ", rta_getattr_u32(tb));
+}
+
+static void print_nexthop_flags(FILE *fp, unsigned int flags)
+{
+	if (flags & RTNH_F_DEAD)
+		fprintf(fp, "dead ");
+	if (flags & RTNH_F_ONLINK)
+		fprintf(fp, "onlink ");
+	if (flags & RTNH_F_PERVASIVE)
+		fprintf(fp, "pervasive ");
+	if (flags & RTNH_F_OFFLOAD)
+		fprintf(fp, "offload ");
+	if (flags & RTM_F_NOTIFY)
+		fprintf(fp, "notify ");
+	if (flags & RTNH_F_LINKDOWN)
+		fprintf(fp, "linkdown ");
+}
+
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
@@ -489,27 +524,11 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	print_table(fp, r, tb[RTA_TABLE]);
 	print_proto_scope(fp, r);
 
-	if (tb[RTA_PREFSRC] && filter.rprefsrc.bitlen != host_len) {
-		/* Do not use format_host(). It is our local addr
-		   and symbolic name will not be useful.
-		 */
-		fprintf(fp, "src %s ",
-			rt_addr_n2a_rta(r->rtm_family, tb[RTA_PREFSRC]));
-	}
-	if (tb[RTA_PRIORITY])
-		fprintf(fp, "metric %u ", rta_getattr_u32(tb[RTA_PRIORITY]));
-	if (r->rtm_flags & RTNH_F_DEAD)
-		fprintf(fp, "dead ");
-	if (r->rtm_flags & RTNH_F_ONLINK)
-		fprintf(fp, "onlink ");
-	if (r->rtm_flags & RTNH_F_PERVASIVE)
-		fprintf(fp, "pervasive ");
-	if (r->rtm_flags & RTNH_F_OFFLOAD)
-		fprintf(fp, "offload ");
-	if (r->rtm_flags & RTM_F_NOTIFY)
-		fprintf(fp, "notify ");
-	if (r->rtm_flags & RTNH_F_LINKDOWN)
-		fprintf(fp, "linkdown ");
+	print_prefsrc_attr(fp, r, tb[RTA_PREFSRC]);
+	print_prio_attr(fp, tb[RTA_PRIORITY]);
+
+	print_nexthop_flags(fp, r->rtm_flags);
+
 	if (tb[RTA_MARK]) {
 		unsigned int mark = *(unsigned int *)RTA_DATA(tb[RTA_MARK]);
 
