@@ -452,6 +452,45 @@ static void print_nexthop_flags(FILE *fp, unsigned int flags)
 		fprintf(fp, "linkdown ");
 }
 
+static void print_mark_attr(FILE *fp, struct rtattr *tb)
+{
+	if (tb) {
+		unsigned int mark = *(unsigned int *)RTA_DATA(tb);
+
+		if (mark) {
+			if (mark >= 16)
+				fprintf(fp, "mark 0x%x ", mark);
+			else
+				fprintf(fp, "mark %u ", mark);
+		}
+	}
+}
+
+static void print_flow_attr(FILE *fp, struct rtattr *tb)
+{
+	SPRINT_BUF(b1);
+
+	if (tb && filter.realmmask != ~0U) {
+		__u32 to = rta_getattr_u32(tb);
+		__u32 from = to>>16;
+
+		to &= 0xFFFF;
+		fprintf(fp, "realm%s ", from ? "s" : "");
+		if (from) {
+			fprintf(fp, "%s/",
+				rtnl_rtrealm_n2a(from, b1, sizeof(b1)));
+		}
+		fprintf(fp, "%s ",
+			rtnl_rtrealm_n2a(to, b1, sizeof(b1)));
+	}
+}
+
+static void print_uid_attr(FILE *fp, struct rtattr *tb)
+{
+	if (tb)
+		fprintf(fp, "uid %u ", rta_getattr_u32(tb));
+}
+
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
@@ -529,33 +568,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 
 	print_nexthop_flags(fp, r->rtm_flags);
 
-	if (tb[RTA_MARK]) {
-		unsigned int mark = *(unsigned int *)RTA_DATA(tb[RTA_MARK]);
-
-		if (mark) {
-			if (mark >= 16)
-				fprintf(fp, "mark 0x%x ", mark);
-			else
-				fprintf(fp, "mark %u ", mark);
-		}
-	}
-
-	if (tb[RTA_FLOW] && filter.realmmask != ~0U) {
-		__u32 to = rta_getattr_u32(tb[RTA_FLOW]);
-		__u32 from = to>>16;
-
-		to &= 0xFFFF;
-		fprintf(fp, "realm%s ", from ? "s" : "");
-		if (from) {
-			fprintf(fp, "%s/",
-				rtnl_rtrealm_n2a(from, b1, sizeof(b1)));
-		}
-		fprintf(fp, "%s ",
-			rtnl_rtrealm_n2a(to, b1, sizeof(b1)));
-	}
-
-	if (tb[RTA_UID])
-		fprintf(fp, "uid %u ", rta_getattr_u32(tb[RTA_UID]));
+	print_mark_attr(fp, tb[RTA_MARK]);
+	print_flow_attr(fp, tb[RTA_FLOW]);
+	print_uid_attr(fp, tb[RTA_UID]);
 
 	if ((r->rtm_flags&RTM_F_CLONED) && r->rtm_family == AF_INET) {
 		__u32 flags = r->rtm_flags&~0xFFFF;
