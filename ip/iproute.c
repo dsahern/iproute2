@@ -491,6 +491,37 @@ static void print_uid_attr(FILE *fp, struct rtattr *tb)
 		fprintf(fp, "uid %u ", rta_getattr_u32(tb));
 }
 
+static void print_rtm_upper_flags(FILE *fp, struct rtmsg *r)
+{
+	__u32 flags = r->rtm_flags & ~0xFFFF;
+	int first = 1;
+
+	fprintf(fp, "%s    cache ", _SL_);
+
+#define PRTFL(fl, flname) if (flags&RTCF_##fl) { \
+	flags &= ~RTCF_##fl; \
+	fprintf(fp, "%s" flname "%s", first ? "<" : "", flags ? "," : "> "); \
+	first = 0; }
+
+	PRTFL(LOCAL, "local");
+	PRTFL(REJECT, "reject");
+	PRTFL(MULTICAST, "mc");
+	PRTFL(BROADCAST, "brd");
+	PRTFL(DNAT, "dst-nat");
+	PRTFL(SNAT, "src-nat");
+	PRTFL(MASQ, "masq");
+	PRTFL(DIRECTDST, "dst-direct");
+	PRTFL(DIRECTSRC, "src-direct");
+	PRTFL(REDIRECTED, "redirected");
+	PRTFL(DOREDIRECT, "redirect");
+	PRTFL(FAST, "fastroute");
+	PRTFL(NOTIFY, "notify");
+	PRTFL(TPROXY, "proxy");
+
+	if (flags)
+		fprintf(fp, "%s%x> ", first ? "<" : "", flags);
+}
+
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
@@ -572,33 +603,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	print_flow_attr(fp, tb[RTA_FLOW]);
 	print_uid_attr(fp, tb[RTA_UID]);
 
-	if ((r->rtm_flags&RTM_F_CLONED) && r->rtm_family == AF_INET) {
-		__u32 flags = r->rtm_flags&~0xFFFF;
-		int first = 1;
+	if ((r->rtm_flags & RTM_F_CLONED) && r->rtm_family == AF_INET) {
+		print_rtm_upper_flags(fp, r);
 
-		fprintf(fp, "%s    cache ", _SL_);
-
-#define PRTFL(fl, flname) if (flags&RTCF_##fl) { \
-  flags &= ~RTCF_##fl; \
-  fprintf(fp, "%s" flname "%s", first ? "<" : "", flags ? "," : "> "); \
-  first = 0; }
-		PRTFL(LOCAL, "local");
-		PRTFL(REJECT, "reject");
-		PRTFL(MULTICAST, "mc");
-		PRTFL(BROADCAST, "brd");
-		PRTFL(DNAT, "dst-nat");
-		PRTFL(SNAT, "src-nat");
-		PRTFL(MASQ, "masq");
-		PRTFL(DIRECTDST, "dst-direct");
-		PRTFL(DIRECTSRC, "src-direct");
-		PRTFL(REDIRECTED, "redirected");
-		PRTFL(DOREDIRECT, "redirect");
-		PRTFL(FAST, "fastroute");
-		PRTFL(NOTIFY, "notify");
-		PRTFL(TPROXY, "proxy");
-
-		if (flags)
-			fprintf(fp, "%s%x> ", first ? "<" : "", flags);
 		if (tb[RTA_CACHEINFO]) {
 			struct rta_cacheinfo *ci = RTA_DATA(tb[RTA_CACHEINFO]);
 
