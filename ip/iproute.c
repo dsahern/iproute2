@@ -306,13 +306,64 @@ static void print_rtax_features(FILE *fp, unsigned int features)
 		fprintf(fp, " 0x%x", of);
 }
 
+static void print_dst_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
+{
+	int host_len = af_bit_len(r->rtm_family);
+	int family;
+
+	if (tb) {
+		family = get_real_family(r->rtm_type, r->rtm_family);
+		if (r->rtm_dst_len != host_len) {
+			fprintf(fp, "%s/%u ",
+				rt_addr_n2a_rta(family, tb),
+				r->rtm_dst_len);
+		} else {
+			fprintf(fp, "%s ",
+				format_host_rta(family, tb));
+		}
+	} else if (r->rtm_dst_len) {
+		fprintf(fp, "0/%d ", r->rtm_dst_len);
+	} else {
+		fprintf(fp, "default ");
+	}
+}
+
+static void print_src_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
+{
+	int host_len = af_bit_len(r->rtm_family);
+	int family;
+
+	if (tb) {
+		family = get_real_family(r->rtm_type, r->rtm_family);
+		if (r->rtm_src_len != host_len) {
+			fprintf(fp, "from %s/%u ",
+				rt_addr_n2a_rta(family, tb),
+				r->rtm_src_len);
+		} else {
+			fprintf(fp, "from %s ",
+				format_host_rta(family, tb));
+		}
+	} else if (r->rtm_src_len) {
+		fprintf(fp, "from 0/%u ", r->rtm_src_len);
+	}
+}
+
+static void print_newdst_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
+{
+	if (tb) {
+		fprintf(fp, "as to %s ",
+			format_host_rta(r->rtm_family, tb));
+	}
+}
+
+
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
 	struct rtmsg *r = NLMSG_DATA(n);
 	int len = n->nlmsg_len;
 	struct rtattr *tb[RTA_MAX+1];
-	int host_len, family;
+	int host_len;
 	__u32 table;
 
 	SPRINT_BUF(b1);
@@ -363,39 +414,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	    (!filter.typemask || (filter.typemask & (1 << r->rtm_type))))
 		fprintf(fp, "%s ", rtnl_rtntype_n2a(r->rtm_type, b1, sizeof(b1)));
 
-	if (tb[RTA_DST]) {
-		family = get_real_family(r->rtm_type, r->rtm_family);
-		if (r->rtm_dst_len != host_len) {
-			fprintf(fp, "%s/%u ",
-				rt_addr_n2a_rta(family, tb[RTA_DST]),
-			        r->rtm_dst_len);
-		} else {
-			fprintf(fp, "%s ",
-				format_host_rta(family, tb[RTA_DST]));
-		}
-	} else if (r->rtm_dst_len) {
-		fprintf(fp, "0/%d ", r->rtm_dst_len);
-	} else {
-		fprintf(fp, "default ");
-	}
-	if (tb[RTA_SRC]) {
-		family = get_real_family(r->rtm_type, r->rtm_family);
-		if (r->rtm_src_len != host_len) {
-			fprintf(fp, "from %s/%u ",
-				rt_addr_n2a_rta(family, tb[RTA_SRC]),
-			        r->rtm_src_len);
-		} else {
-			fprintf(fp, "from %s ",
-				format_host_rta(family, tb[RTA_SRC]));
-		}
-	} else if (r->rtm_src_len) {
-		fprintf(fp, "from 0/%u ", r->rtm_src_len);
-	}
-	if (tb[RTA_NEWDST]) {
-		fprintf(fp, "as to %s ",
-		        format_host_rta(r->rtm_family, tb[RTA_NEWDST]));
-	}
-
+	print_dst_attr(fp, r, tb[RTA_DST]);
+	print_src_attr(fp, r, tb[RTA_SRC]);
+	print_newdst_attr(fp, r, tb[RTA_NEWDST]);
 	if (tb[RTA_ENCAP])
 		lwt_print_encap(fp, tb[RTA_ENCAP_TYPE], tb[RTA_ENCAP]);
 
