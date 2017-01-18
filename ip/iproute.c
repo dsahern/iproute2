@@ -356,6 +356,33 @@ static void print_newdst_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
 	}
 }
 
+static void print_gw_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
+{
+	int host_len = af_bit_len(r->rtm_family);
+
+	if (tb && filter.rvia.bitlen != host_len) {
+		fprintf(fp, "via %s ",
+			format_host_rta(r->rtm_family, tb));
+	}
+}
+
+static void print_via_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
+{
+	if (tb) {
+		size_t len = RTA_PAYLOAD(tb) - 2;
+		struct rtvia *via = RTA_DATA(tb);
+
+		fprintf(fp, "via %s %s ",
+			family_name(via->rtvia_family),
+			format_host(via->rtvia_family, len, via->rtvia_addr));
+	}
+}
+
+static void print_oif_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
+{
+	if (tb && filter.oifmask != -1)
+		fprintf(fp, "dev %s ", ll_index_to_name(*(int *)RTA_DATA(tb)));
+}
 
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
@@ -424,20 +451,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 		fprintf(fp, "tos %s ", rtnl_dsfield_n2a(r->rtm_tos, b1, sizeof(b1)));
 	}
 
-	if (tb[RTA_GATEWAY] && filter.rvia.bitlen != host_len) {
-		fprintf(fp, "via %s ",
-		        format_host_rta(r->rtm_family, tb[RTA_GATEWAY]));
-	}
-	if (tb[RTA_VIA]) {
-		size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
-		struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
-
-		fprintf(fp, "via %s %s ",
-			family_name(via->rtvia_family),
-			format_host(via->rtvia_family, len, via->rtvia_addr));
-	}
-	if (tb[RTA_OIF] && filter.oifmask != -1)
-		fprintf(fp, "dev %s ", ll_index_to_name(*(int *)RTA_DATA(tb[RTA_OIF])));
+	print_gw_attr(fp, r, tb[RTA_GATEWAY]);
+	print_via_attr(fp, r, tb[RTA_VIA]);
+	print_oif_attr(fp, r, tb[RTA_OIF]);
 
 	if (table && (table != RT_TABLE_MAIN || show_details > 0) && !filter.tb)
 		fprintf(fp, "table %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
