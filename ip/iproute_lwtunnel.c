@@ -210,12 +210,11 @@ static void print_encap_bpf(FILE *fp, struct rtattr *encap)
 		fprintf(fp, "%d ", rta_getattr_u32(tb[LWT_BPF_XMIT_HEADROOM]));
 }
 
-void lwt_print_encap(FILE *fp, struct rtattr *encap_type,
-			  struct rtattr *encap)
+void lwt_print_encap(FILE *fp, struct rtattr *encap_type, struct rtattr *encap)
 {
 	int et;
 
-	if (!encap_type)
+	if (!encap_type || !encap)
 		return;
 
 	et = rta_getattr_u16(encap_type);

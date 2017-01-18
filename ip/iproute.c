@@ -417,8 +417,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	print_dst_attr(fp, r, tb[RTA_DST]);
 	print_src_attr(fp, r, tb[RTA_SRC]);
 	print_newdst_attr(fp, r, tb[RTA_NEWDST]);
-	if (tb[RTA_ENCAP])
-		lwt_print_encap(fp, tb[RTA_ENCAP_TYPE], tb[RTA_ENCAP]);
+	lwt_print_encap(fp, tb[RTA_ENCAP_TYPE], tb[RTA_ENCAP]);
 
 	if (r->rtm_tos && filter.tosmask != -1) {
 		SPRINT_BUF(b1);
