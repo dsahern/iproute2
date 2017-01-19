@@ -855,11 +855,10 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	}
 
 	print_metrics_attr(fp, tb[RTA_METRICS]);
+	print_pref_attr(fp, tb[RTA_PREF]);
 	print_iif_attr(fp, tb[RTA_IIF]);
 
 	print_multipath_attr(fp, r, tb[RTA_MULTIPATH], 0);
-
-	print_pref_attr(fp, tb[RTA_PREF]);
 
 	print_route_match_attr(fp, tb[RTA_ROUTE_MATCH]);
 
