@@ -635,6 +635,18 @@ static void print_iif_attr(FILE *fp, struct rtattr *tb)
 		fprintf(fp, " iif %s", ll_index_to_name(*(int *)RTA_DATA(tb)));
 }
 
+static void print_rtnh_attrs_rtma(FILE *fp, struct rtmsg *r,
+				  struct rtnexthop *nh)
+{
+	struct rtattr *tb[RTMA_MAX+1];
+
+	parse_rtattr(tb, RTA_MAX, RTNH_DATA(nh), nh->rtnh_len - sizeof(*nh));
+
+	lwt_print_encap(fp, tb[RTMA_ENCAP_TYPE], tb[RTMA_ENCAP]);
+	print_gw_attr(fp, r, tb[RTMA_GATEWAY]);
+	print_flow_attr(fp, tb[RTMA_FLOW]);
+}
+
 static void print_rtnh_attrs(FILE *fp, struct rtmsg *r, struct rtnexthop *nh)
 {
 	struct rtattr *tb[RTA_MAX+1];
@@ -648,7 +660,8 @@ static void print_rtnh_attrs(FILE *fp, struct rtmsg *r, struct rtnexthop *nh)
 	print_flow_attr(fp, tb[RTA_FLOW]);
 }
 
-static void print_multipath_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
+static void print_multipath_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb,
+				 int rtma)
 {
 	struct rtnexthop *nh;
 	int first = 0, len;
@@ -671,10 +684,14 @@ static void print_multipath_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
 			else
 				fprintf(fp, " ");
 		} else
-			fprintf(fp, "%s\tnexthop", _SL_);
+			fprintf(fp, "%s\tnexthop ", _SL_);
 
-		if (nh->rtnh_len > sizeof(*nh))
-			print_rtnh_attrs(fp, r, nh);
+		if (nh->rtnh_len > sizeof(*nh)) {
+			if (rtma)
+				print_rtnh_attrs_rtma(fp, r, nh);
+			else
+				print_rtnh_attrs(fp, r, nh);
+		}
 
 		if (r->rtm_flags & RTM_F_CLONED &&
 		    r->rtm_type == RTN_MULTICAST) {
@@ -744,7 +761,7 @@ static void print_route_match_attr(FILE *fp, struct rtattr *attr)
 		print_prio_attr(fp, tb[RTMA_PRIORITY]);
 		print_nexthop_flags(fp, r->rtm_flags);
 		print_metrics_attr(fp, tb[RTMA_METRICS]);
-		print_multipath_attr(fp, r, tb[RTMA_MULTIPATH]);
+		print_multipath_attr(fp, r, tb[RTMA_MULTIPATH], 1);
 	}
 }
 
@@ -840,7 +857,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	print_metrics_attr(fp, tb[RTA_METRICS]);
 	print_iif_attr(fp, tb[RTA_IIF]);
 
-	print_multipath_attr(fp, r, tb[RTA_MULTIPATH]);
+	print_multipath_attr(fp, r, tb[RTA_MULTIPATH], 0);
 
 	print_pref_attr(fp, tb[RTA_PREF]);
 
