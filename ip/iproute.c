@@ -639,6 +639,54 @@ static void print_rtnh_attrs(FILE *fp, struct rtmsg *r, struct rtnexthop *nh)
 	print_flow_attr(fp, tb[RTA_FLOW]);
 }
 
+static void print_multipath_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
+{
+	struct rtnexthop *nh;
+	int first = 0, len;
+
+	if (!tb)
+		return;
+
+	nh = RTA_DATA(tb);
+	len = RTA_PAYLOAD(tb);
+
+	for (;;) {
+		if (len < sizeof(*nh))
+			break;
+		if (nh->rtnh_len > len)
+			break;
+		if (r->rtm_flags & RTM_F_CLONED &&
+		    r->rtm_type == RTN_MULTICAST) {
+			if (first)
+				fprintf(fp, " Oifs:");
+			else
+				fprintf(fp, " ");
+		} else
+			fprintf(fp, "%s\tnexthop", _SL_);
+
+		if (nh->rtnh_len > sizeof(*nh))
+			print_rtnh_attrs(fp, r, nh);
+
+		if (r->rtm_flags & RTM_F_CLONED &&
+		    r->rtm_type == RTN_MULTICAST) {
+			fprintf(fp, " %s", ll_index_to_name(nh->rtnh_ifindex));
+			if (nh->rtnh_hops != 1)
+				fprintf(fp, "(ttl>%d)", nh->rtnh_hops);
+		} else {
+			fprintf(fp, " dev %s",
+				ll_index_to_name(nh->rtnh_ifindex));
+			if (r->rtm_family != AF_MPLS)
+				fprintf(fp, " weight %d",
+					nh->rtnh_hops+1);
+		}
+
+		print_nexthop_flags(fp, nh->rtnh_flags);
+
+		len -= NLMSG_ALIGN(nh->rtnh_len);
+		nh = RTNH_NEXT(nh);
+	}
+}
+
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
@@ -734,50 +782,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	print_metrics_attr(fp, tb[RTA_METRICS]);
 	print_iif_attr(fp, tb[RTA_IIF]);
 
-	if (tb[RTA_MULTIPATH]) {
-		struct rtnexthop *nh = RTA_DATA(tb[RTA_MULTIPATH]);
-		int first = 0;
-
-		len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
-
-		for (;;) {
-			if (len < sizeof(*nh))
-				break;
-			if (nh->rtnh_len > len)
-				break;
-			if (r->rtm_flags&RTM_F_CLONED && r->rtm_type == RTN_MULTICAST) {
-				if (first)
-					fprintf(fp, " Oifs:");
-				else
-					fprintf(fp, " ");
-			} else
-				fprintf(fp, "%s\tnexthop", _SL_);
-
-			if (nh->rtnh_len > sizeof(*nh))
-				print_rtnh_attrs(fp, r, nh);
-
-			if (r->rtm_flags&RTM_F_CLONED && r->rtm_type == RTN_MULTICAST) {
-				fprintf(fp, " %s", ll_index_to_name(nh->rtnh_ifindex));
-				if (nh->rtnh_hops != 1)
-					fprintf(fp, "(ttl>%d)", nh->rtnh_hops);
-			} else {
-				fprintf(fp, " dev %s", ll_index_to_name(nh->rtnh_ifindex));
-				if (r->rtm_family != AF_MPLS)
-					fprintf(fp, " weight %d",
-						nh->rtnh_hops+1);
-			}
-			if (nh->rtnh_flags & RTNH_F_DEAD)
-				fprintf(fp, " dead");
-			if (nh->rtnh_flags & RTNH_F_ONLINK)
-				fprintf(fp, " onlink");
-			if (nh->rtnh_flags & RTNH_F_PERVASIVE)
-				fprintf(fp, " pervasive");
-			if (nh->rtnh_flags & RTNH_F_LINKDOWN)
-				fprintf(fp, " linkdown");
-			len -= NLMSG_ALIGN(nh->rtnh_len);
-			nh = RTNH_NEXT(nh);
-		}
-	}
+	print_multipath_attr(fp, r, tb[RTA_MULTIPATH]);
 	if (tb[RTA_PREF]) {
 		unsigned int pref = rta_getattr_u8(tb[RTA_PREF]);
 
