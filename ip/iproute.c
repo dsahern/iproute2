@@ -306,6 +306,15 @@ static void print_rtax_features(FILE *fp, unsigned int features)
 		fprintf(fp, " 0x%x", of);
 }
 
+static void print_tos(FILE *fp, struct rtmsg *r)
+{
+	if (r->rtm_tos && filter.tosmask != -1) {
+		SPRINT_BUF(b1);
+		fprintf(fp, "tos %s ",
+			rtnl_dsfield_n2a(r->rtm_tos, b1, sizeof(b1)));
+	}
+}
+
 static void print_dst_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
 {
 	int host_len = af_bit_len(r->rtm_family);
@@ -798,10 +807,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	print_newdst_attr(fp, r, tb[RTA_NEWDST]);
 	lwt_print_encap(fp, tb[RTA_ENCAP_TYPE], tb[RTA_ENCAP]);
 
-	if (r->rtm_tos && filter.tosmask != -1) {
-		SPRINT_BUF(b1);
-		fprintf(fp, "tos %s ", rtnl_dsfield_n2a(r->rtm_tos, b1, sizeof(b1)));
-	}
+	print_tos(fp, r);
 
 	print_gw_attr(fp, r, tb[RTA_GATEWAY]);
 	print_via_attr(fp, r, tb[RTA_VIA]);
