@@ -626,6 +626,19 @@ static void print_iif_attr(FILE *fp, struct rtattr *tb)
 		fprintf(fp, " iif %s", ll_index_to_name(*(int *)RTA_DATA(tb)));
 }
 
+static void print_rtnh_attrs(FILE *fp, struct rtmsg *r, struct rtnexthop *nh)
+{
+	struct rtattr *tb[RTA_MAX+1];
+
+	parse_rtattr(tb, RTA_MAX, RTNH_DATA(nh), nh->rtnh_len - sizeof(*nh));
+
+	lwt_print_encap(fp, tb[RTA_ENCAP_TYPE], tb[RTA_ENCAP]);
+	print_newdst_attr(fp, r, tb[RTA_NEWDST]);
+	print_gw_attr(fp, r, tb[RTA_GATEWAY]);
+	print_via_attr(fp, r, tb[RTA_VIA]);
+	print_flow_attr(fp, tb[RTA_FLOW]);
+}
+
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
@@ -739,45 +752,10 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 					fprintf(fp, " ");
 			} else
 				fprintf(fp, "%s\tnexthop", _SL_);
-			if (nh->rtnh_len > sizeof(*nh)) {
-				parse_rtattr(tb, RTA_MAX, RTNH_DATA(nh), nh->rtnh_len - sizeof(*nh));
 
-				if (tb[RTA_ENCAP])
-					lwt_print_encap(fp,
-							tb[RTA_ENCAP_TYPE],
-							tb[RTA_ENCAP]);
-				if (tb[RTA_NEWDST]) {
-					fprintf(fp, " as to %s ",
-						format_host_rta(r->rtm_family,
-								tb[RTA_NEWDST]));
-				}
-				if (tb[RTA_GATEWAY]) {
-					fprintf(fp, " via %s ",
-						format_host_rta(r->rtm_family,
-								tb[RTA_GATEWAY]));
-				}
-				if (tb[RTA_VIA]) {
-					size_t len = RTA_PAYLOAD(tb[RTA_VIA]) - 2;
-					struct rtvia *via = RTA_DATA(tb[RTA_VIA]);
+			if (nh->rtnh_len > sizeof(*nh))
+				print_rtnh_attrs(fp, r, nh);
 
-					fprintf(fp, "via %s %s ",
-						family_name(via->rtvia_family),
-						format_host(via->rtvia_family, len, via->rtvia_addr));
-				}
-				if (tb[RTA_FLOW]) {
-					__u32 to = rta_getattr_u32(tb[RTA_FLOW]);
-					__u32 from = to>>16;
-
-					to &= 0xFFFF;
-					fprintf(fp, " realm%s ", from ? "s" : "");
-					if (from) {
-						fprintf(fp, "%s/",
-							rtnl_rtrealm_n2a(from, b1, sizeof(b1)));
-					}
-					fprintf(fp, "%s",
-						rtnl_rtrealm_n2a(to, b1, sizeof(b1)));
-				}
-			}
 			if (r->rtm_flags&RTM_F_CLONED && r->rtm_type == RTN_MULTICAST) {
 				fprintf(fp, " %s", ll_index_to_name(nh->rtnh_ifindex));
 				if (nh->rtnh_hops != 1)
