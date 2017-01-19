@@ -620,6 +620,12 @@ static void print_metrics_attr(FILE *fp, struct rtattr *tb)
 	}
 }
 
+static void print_iif_attr(FILE *fp, struct rtattr *tb)
+{
+	if (tb && filter.iifmask != -1)
+		fprintf(fp, " iif %s", ll_index_to_name(*(int *)RTA_DATA(tb)));
+}
+
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
@@ -713,10 +719,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	}
 
 	print_metrics_attr(fp, tb[RTA_METRICS]);
+	print_iif_attr(fp, tb[RTA_IIF]);
 
-	if (tb[RTA_IIF] && filter.iifmask != -1) {
-		fprintf(fp, " iif %s", ll_index_to_name(*(int *)RTA_DATA(tb[RTA_IIF])));
-	}
 	if (tb[RTA_MULTIPATH]) {
 		struct rtnexthop *nh = RTA_DATA(tb[RTA_MULTIPATH]);
 		int first = 0;
