@@ -319,10 +319,32 @@ enum rtattr_type_t {
 	RTA_EXPIRES,
 	RTA_PAD,
 	RTA_UID,
+	RTA_ROUTE_MATCH,  /* nested attribute; route spec for RTM_GETROUTE */
 	__RTA_MAX
 };
 
 #define RTA_MAX (__RTA_MAX - 1)
+
+/* attributes for route get match */
+
+enum rtmatch_attr_type_t {
+	RTMA_UNSPEC,
+	RTMA_RTM,
+	RTMA_DST,
+	RTMA_OIF,
+	RTMA_GATEWAY,
+	RTMA_PRIORITY,
+	RTMA_PREFSRC,
+	RTMA_METRICS,  /* nested RTAX_ attributes */
+	RTMA_MULTIPATH,
+	RTMA_FLOW,
+	RTMA_TABLE,
+	RTMA_ENCAP_TYPE,
+	RTMA_ENCAP,
+	__RTMA_MAX
+};
+
+#define RTMA_MAX (__RTMA_MAX - 1)
 
 #define RTM_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct rtmsg))))
 #define RTM_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct rtmsg))

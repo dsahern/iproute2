@@ -710,6 +710,35 @@ static void print_pref_attr(FILE *fp, struct rtattr *tb)
 	}
 }
 
+static void print_route_match_attr(FILE *fp, struct rtattr *attr)
+{
+	struct rtattr *tb[RTMA_MAX+1];
+
+	if (!attr)
+		return;
+
+	parse_rtattr_nested(tb, RTMA_MAX, attr);
+	if (tb[RTMA_RTM]) {
+		struct rtmsg *r = RTA_DATA(tb[RTMA_RTM]);
+
+		fprintf(fp, "\n");
+		fprintf(fp, "\nMatching route:\n    ");
+
+		print_dst_attr(fp, r, tb[RTMA_DST]);
+		lwt_print_encap(fp, tb[RTMA_ENCAP_TYPE], tb[RTMA_ENCAP]);
+		print_tos(fp, r);
+		print_gw_attr(fp, r, tb[RTMA_GATEWAY]);
+		print_oif_attr(fp, r, tb[RTMA_OIF]);
+		print_table(fp, r, tb[RTMA_TABLE]);
+		print_proto_scope(fp, r);
+		print_prefsrc_attr(fp, r, tb[RTMA_PREFSRC]);
+		print_prio_attr(fp, tb[RTMA_PRIORITY]);
+		print_nexthop_flags(fp, r->rtm_flags);
+		print_metrics_attr(fp, tb[RTMA_METRICS]);
+		print_multipath_attr(fp, r, tb[RTMA_MULTIPATH]);
+	}
+}
+
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
@@ -808,6 +837,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	print_multipath_attr(fp, r, tb[RTA_MULTIPATH]);
 
 	print_pref_attr(fp, tb[RTA_PREF]);
+
+	print_route_match_attr(fp, tb[RTA_ROUTE_MATCH]);
 
 	fprintf(fp, "\n");
 	fflush(fp);
