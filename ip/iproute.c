@@ -687,6 +687,29 @@ static void print_multipath_attr(FILE *fp, struct rtmsg *r, struct rtattr *tb)
 	}
 }
 
+static void print_pref_attr(FILE *fp, struct rtattr *tb)
+{
+	if (tb) {
+		unsigned int pref = rta_getattr_u8(tb);
+
+		fprintf(fp, " pref ");
+
+		switch (pref) {
+		case ICMPV6_ROUTER_PREF_LOW:
+			fprintf(fp, "low");
+			break;
+		case ICMPV6_ROUTER_PREF_MEDIUM:
+			fprintf(fp, "medium");
+			break;
+		case ICMPV6_ROUTER_PREF_HIGH:
+			fprintf(fp, "high");
+			break;
+		default:
+			fprintf(fp, "%u", pref);
+		}
+	}
+}
+
 int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 {
 	FILE *fp = (FILE *)arg;
@@ -783,25 +806,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	print_iif_attr(fp, tb[RTA_IIF]);
 
 	print_multipath_attr(fp, r, tb[RTA_MULTIPATH]);
-	if (tb[RTA_PREF]) {
-		unsigned int pref = rta_getattr_u8(tb[RTA_PREF]);
 
-		fprintf(fp, " pref ");
+	print_pref_attr(fp, tb[RTA_PREF]);
 
-		switch (pref) {
-		case ICMPV6_ROUTER_PREF_LOW:
-			fprintf(fp, "low");
-			break;
-		case ICMPV6_ROUTER_PREF_MEDIUM:
-			fprintf(fp, "medium");
-			break;
-		case ICMPV6_ROUTER_PREF_HIGH:
-			fprintf(fp, "high");
-			break;
-		default:
-			fprintf(fp, "%u", pref);
-		}
-	}
 	fprintf(fp, "\n");
 	fflush(fp);
 	return 0;
