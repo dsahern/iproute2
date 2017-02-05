@@ -440,6 +440,17 @@ union bpf_attr {
  *     @xdp_md: pointer to xdp_md
  *     @delta: An positive/negative integer to be added to xdp_md.data
  *     Return: 0 on success or negative on error
+ *
+ * u64 bpf_sk_netns_id(sk)
+ *     Returns unique value that identifies netns of given socket or skb.
+ *     The upper 32-bits of the return value contain device id where namespace
+ *     filesystem resides and lower 32-bits contain inode number within
+ *     that filesystem. It's the same value as:
+ *      struct stat st;
+ *      stat("/proc/pid/ns/net", &st);
+ *      return (st->st_dev << 32)  | st->st_ino;
+ *     @sk: pointer to struct sock or struct __sk_buff
+ *     Return: filesystem's device id | netns inode
  */
 #define __BPF_FUNC_MAPPER(FN)		\
 	FN(unspec),			\
@@ -486,7 +497,8 @@ union bpf_attr {
 	FN(set_hash_invalid),		\
 	FN(get_numa_node_id),		\
 	FN(skb_change_head),		\
-	FN(xdp_adjust_head),
+	FN(xdp_adjust_head),		\
+	FN(sk_netns_id),
 
 /* integer value in 'imm' field of BPF_CALL instruction selects which helper
  * function eBPF program intends to call

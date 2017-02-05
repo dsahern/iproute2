@@ -238,15 +238,25 @@ out:
 /* load BPF program to set sk_bound_dev_if for sockets */
 static char bpf_log_buf[256*1024];
 
-static int prog_load(int idx)
+static int prog_load(int idx, __u64 netns_id)
 {
 	struct bpf_insn prog[] = {
-		BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-		BPF_MOV64_IMM(BPF_REG_3, idx),
-		BPF_MOV64_IMM(BPF_REG_2,
-			      offsetof(struct bpf_sock, bound_dev_if)),
-		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3,
+		BPF_MOV64_REG(BPF_REG_6, BPF_REG_1), /* save sk ctx to r6 */
+
+		/* get network namespace context for socket; r1 = ctx */
+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_sk_netns_id),
+		BPF_MOV64_REG(BPF_REG_2, BPF_REG_0),
+
+		/* compare to expected context; if not equal jump to exit */
+		BPF_LD_IMM64(BPF_REG_3, netns_id),
+		BPF_JMP_REG(BPF_JNE, BPF_REG_2, BPF_REG_3, 3),
+
+		/* set sk_bound_dev_if for socket */
+		BPF_MOV64_IMM(BPF_REG_2, idx),
+		BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
+		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_2,
 			    offsetof(struct bpf_sock, bound_dev_if)),
+
 		BPF_MOV64_IMM(BPF_REG_0, 1), /* r0 = verdict */
 		BPF_EXIT_INSN(),
 	};
@@ -255,9 +265,24 @@ static int prog_load(int idx)
 			     "GPL", bpf_log_buf, sizeof(bpf_log_buf));
 }
 
+/* return namespace inode */
+static __u64 vrf_read_netns_id(pid_t pid)
+{
+	char path[PATH_MAX];
+	struct stat st;
+
+	snprintf(path, sizeof(path), "/proc/%d/ns/net", pid);
+
+	if (stat(path, &st) != 0)
+		return 0;
+
+	return (st.st_dev << 32) | st.st_ino;
+}
+
 static int vrf_configure_cgroup(const char *path, int ifindex)
 {
 	int rc = -1, cg_fd, prog_fd = -1;
+	__u64 netns_id;
 
 	cg_fd = open(path, O_DIRECTORY | O_RDONLY);
 	if (cg_fd < 0) {
@@ -267,14 +292,23 @@ static int vrf_configure_cgroup(const char *path, int ifindex)
 		goto out;
 	}
 
+	netns_id = vrf_read_netns_id(getpid());
+	if (!netns_id) {
+		fprintf(stderr,
+			"Failed to read network namespace data\n");
+		goto out;
+	}
+
 	/*
 	 * Load bpf program into kernel and attach to cgroup to affect
 	 * socket creates
 	 */
-	prog_fd = prog_load(ifindex);
+	prog_fd = prog_load(ifindex, netns_id);
 	if (prog_fd < 0) {
 		fprintf(stderr, "Failed to load BPF prog: '%s'\n",
 			strerror(errno));
+		fprintf(stderr, "Output from kernel verifier:\n%s\n-------\n",
+			bpf_log_buf);
 
 		if (errno != EPERM) {
 			fprintf(stderr,
