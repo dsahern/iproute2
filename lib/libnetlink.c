@@ -25,6 +25,7 @@
 #include <sys/uio.h>
 
 #include "libnetlink.h"
+#include "utils.h"
 
 #ifndef SOL_NETLINK
 #define SOL_NETLINK 270
@@ -303,12 +304,28 @@ static void rtnl_dump_error(const struct rtnl_handle *rth,
 	}
 }
 
+/* cap the buffer size at a 1M */
+#define MAX_RECV_BUF_SZ  (1024 * 1024)
+
+static int new_bufsize(int n)
+{
+	if (n > MAX_RECV_BUF_SZ)
+		return MAX_RECV_BUF_SZ;
+
+	if (!is_power_of_2(n))
+		n = roundup_pow_of_two(n);
+
+	return n;
+}
+
 static int do_recvmsg(int fd, struct msghdr *msg)
 {
+	int flags = MSG_TRUNC | MSG_PEEK;
+	struct iovec *iov = msg->msg_iov;
 	int status;
 
 	while (1) {
-		status = recvmsg(fd, msg, 0);
+		status = recvmsg(fd, msg, flags);
 
 		if (status < 0) {
 			if (errno == EINTR || errno == EAGAIN)
@@ -324,8 +341,34 @@ static int do_recvmsg(int fd, struct msghdr *msg)
 			return -1;
 		}
 
-		break;
+		if (!flags)
+			break;
+
+		/* if buffer is too small, reallocate to hold current
+		 * message
+		 */
+		if (iov->iov_len < status || (msg->msg_flags & MSG_TRUNC)) {
+			int n;
+
+			n = new_bufsize(status);
+			if (n > status) {
+				char *buf;
+
+				buf = realloc(iov->iov_base, n);
+				if (!buf) {
+					fprintf(stderr,
+						"Failed to increase buffer.\n");
+					return -1;
+				}
+				iov->iov_base = buf;
+				iov->iov_len = n;
+fprintf(stderr, "increased buffer size to %d\n", n);
+			}
+		}
+
+		flags = 0;
 	}
+
 	return status;
 }
 
@@ -358,6 +401,8 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 		status = do_recvmsg(rth->fd, &msg);
 		if (status < 0)
 			goto out;
+
+		buf = iov.iov_base;
 
 		if (rth->dump_fp)
 			fwrite(buf, 1, NLMSG_ALIGN(status), rth->dump_fp);
@@ -482,6 +527,8 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 		status = do_recvmsg(rtnl->fd, &msg);
 		if (status < 0)
 			goto out;
+
+		buf = iov.iov_base;
 
 		if (msg.msg_namelen != sizeof(nladdr)) {
 			fprintf(stderr,
@@ -625,6 +672,8 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 				continue;
 			goto out;
 		}
+
+		buf = iov.iov_base;
 
 		if (msg.msg_namelen != sizeof(nladdr)) {
 			fprintf(stderr,

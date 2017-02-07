@@ -208,6 +208,25 @@ static inline void __jiffies_to_tv(struct timeval *tv, unsigned long jiffies)
 int print_timestamp(FILE *fp);
 void print_nlmsg_timestamp(FILE *fp, const struct nlmsghdr *n);
 
+/* from $KERNEL/include/asm-generic/bitops/builtin-fls.h */
+static inline unsigned int fls(unsigned int x)
+{
+	return x ? sizeof(x) * 8 - __builtin_clz(x) : 0;
+}
+
+/* is_power_of_2, __roundup_pow_of_two -- modified versions of
+ * $KERNEL/tools/include/linux/log2.h
+ */
+static inline bool is_power_of_2(unsigned int n)
+{
+	return (n != 0 && ((n & (n - 1)) == 0));
+}
+
+static inline unsigned int roundup_pow_of_two(unsigned int n)
+{
+	return 1 << fls(n - 1);
+}
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 #define BUILD_BUG_ON(cond) ((void)sizeof(char[1 - 2 * !!(cond)]))
