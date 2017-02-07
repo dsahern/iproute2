@@ -340,21 +340,24 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 		.msg_iov = &iov,
 		.msg_iovlen = 1,
 	};
-	char buf[32768];
 	int dump_intr = 0;
+	int rc = -1;
+	char *buf;
 
-	iov.iov_base = buf;
+	iov.iov_len = 32768;
+	iov.iov_base = buf = malloc(iov.iov_len);
+	if (!buf)
+		return -ENOMEM;
+
 	while (1) {
 		int status;
 		const struct rtnl_dump_filter_arg *a;
 		int found_done = 0;
 		int msglen = 0;
 
-		iov.iov_len = sizeof(buf);
-
 		status = do_recvmsg(rth->fd, &msg);
 		if (status < 0)
-			return -1;
+			goto out;
 
 		if (rth->dump_fp)
 			fwrite(buf, 1, NLMSG_ALIGN(status), rth->dump_fp);
@@ -380,7 +383,7 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 				if (h->nlmsg_type == NLMSG_DONE) {
 					err = rtnl_dump_done(rth, h);
 					if (err < 0)
-						return -1;
+						goto out;
 
 					found_done = 1;
 					break; /* process next filter */
@@ -388,13 +391,15 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 
 				if (h->nlmsg_type == NLMSG_ERROR) {
 					rtnl_dump_error(rth, h);
-					return -1;
+					goto out;
 				}
 
 				if (!rth->dump_fp) {
 					err = a->filter(&nladdr, h, a->arg1);
-					if (err < 0)
-						return err;
+					if (err < 0) {
+						rc = err;
+						goto out;
+					}
 				}
 
 skip_it:
@@ -406,7 +411,8 @@ skip_it:
 			if (dump_intr)
 				fprintf(stderr,
 					"Dump was interrupted and may be inconsistent.\n");
-			return 0;
+			rc = 0;
+			goto out;
 		}
 
 		if (msg.msg_flags & MSG_TRUNC) {
@@ -418,6 +424,9 @@ skip_it:
 			exit(1);
 		}
 	}
+out:
+	free(buf);
+	return rc;
 }
 
 int rtnl_dump_filter_nc(struct rtnl_handle *rth,
@@ -450,7 +459,8 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 		.msg_iov = &iov,
 		.msg_iovlen = 1,
 	};
-	char   buf[32768] = {};
+	int rc = -1;
+	char *buf;
 
 	n->nlmsg_seq = seq = ++rtnl->seq;
 
@@ -463,13 +473,15 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 		return -1;
 	}
 
-	iov.iov_base = buf;
-	while (1) {
-		iov.iov_len = sizeof(buf);
+	iov.iov_len = 32768;
+	iov.iov_base = buf = malloc(iov.iov_len);
+	if (!buf)
+		return -ENOMEM;
 
+	while (1) {
 		status = do_recvmsg(rtnl->fd, &msg);
 		if (status < 0)
-			return -1;
+			goto out;
 
 		if (msg.msg_namelen != sizeof(nladdr)) {
 			fprintf(stderr,
@@ -484,7 +496,7 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 			if (l < 0 || len > status) {
 				if (msg.msg_flags & MSG_TRUNC) {
 					fprintf(stderr, "Truncated message\n");
-					return -1;
+					goto out;
 				}
 				fprintf(stderr,
 					"!!!malformed message: len=%d\n",
@@ -510,7 +522,8 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 					if (answer)
 						memcpy(answer, h,
 						       MIN(maxlen, h->nlmsg_len));
-					return 0;
+					rc = 0;
+					goto out;
 				}
 
 				if (rtnl->proto != NETLINK_SOCK_DIAG && show_rtnl_err)
@@ -518,13 +531,14 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 						"RTNETLINK answers: %s\n",
 						strerror(-err->error));
 				errno = -err->error;
-				return -1;
+				goto out;
 			}
 
 			if (answer) {
 				memcpy(answer, h,
 				       MIN(maxlen, h->nlmsg_len));
-				return 0;
+				rc = 0;
+				goto out;
 			}
 
 			fprintf(stderr, "Unexpected reply!!!\n");
@@ -543,6 +557,9 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 			exit(1);
 		}
 	}
+out:
+	free(buf);
+	return rc;
 }
 
 int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
@@ -584,25 +601,29 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 		.msg_iov = &iov,
 		.msg_iovlen = 1,
 	};
-	char   buf[16384];
 	char   cmsgbuf[BUFSIZ];
+	int rc = -1;
+	char *buf;
 
 	if (rtnl->flags & RTNL_HANDLE_F_LISTEN_ALL_NSID) {
 		msg.msg_control = &cmsgbuf;
 		msg.msg_controllen = sizeof(cmsgbuf);
 	}
 
-	iov.iov_base = buf;
+	iov.iov_len = 16384;
+	iov.iov_base = buf = malloc(iov.iov_len);
+	if (!buf)
+		return -ENOMEM;
+
 	while (1) {
 		struct rtnl_ctrl_data ctrl;
 		struct cmsghdr *cmsg;
 
-		iov.iov_len = sizeof(buf);
 		status = do_recvmsg(rtnl->fd, &msg);
 		if (status < 0) {
 			if (errno == ENOBUFS)
 				continue;
-			return -1;
+			goto out;
 		}
 
 		if (msg.msg_namelen != sizeof(nladdr)) {
@@ -634,7 +655,7 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 			if (l < 0 || len > status) {
 				if (msg.msg_flags & MSG_TRUNC) {
 					fprintf(stderr, "Truncated message\n");
-					return -1;
+					goto out;
 				}
 				fprintf(stderr,
 					"!!!malformed message: len=%d\n",
@@ -643,8 +664,10 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 			}
 
 			err = handler(&nladdr, &ctrl, h, jarg);
-			if (err < 0)
-				return err;
+			if (err < 0) {
+				rc = err;
+				goto out;
+			}
 
 			status -= NLMSG_ALIGN(len);
 			h = (struct nlmsghdr *)((char *)h + NLMSG_ALIGN(len));
@@ -658,6 +681,11 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 			exit(1);
 		}
 	}
+
+	rc = 0;
+out:
+	free(buf);
+	return rc;
 }
 
 int rtnl_from_file(FILE *rtnl, rtnl_listen_filter_t handler,
