@@ -303,6 +303,32 @@ static void rtnl_dump_error(const struct rtnl_handle *rth,
 	}
 }
 
+static int do_recvmsg(int fd, struct msghdr *msg)
+{
+	int status;
+
+	while (1) {
+		status = recvmsg(fd, msg, 0);
+
+		if (status < 0) {
+			if (errno == EINTR || errno == EAGAIN)
+				continue;
+
+			fprintf(stderr, "netlink receive error %s (%d)\n",
+				strerror(errno), errno);
+			return -1;
+		}
+
+		if (status == 0) {
+			fprintf(stderr, "EOF on netlink\n");
+			return -1;
+		}
+
+		break;
+	}
+	return status;
+}
+
 int rtnl_dump_filter_l(struct rtnl_handle *rth,
 		       const struct rtnl_dump_filter_arg *arg)
 {
@@ -325,20 +351,10 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 		int msglen = 0;
 
 		iov.iov_len = sizeof(buf);
-		status = recvmsg(rth->fd, &msg, 0);
 
-		if (status < 0) {
-			if (errno == EINTR || errno == EAGAIN)
-				continue;
-			fprintf(stderr, "netlink receive error %s (%d)\n",
-				strerror(errno), errno);
+		status = do_recvmsg(rth->fd, &msg);
+		if (status < 0)
 			return -1;
-		}
-
-		if (status == 0) {
-			fprintf(stderr, "EOF on netlink\n");
-			return -1;
-		}
 
 		if (rth->dump_fp)
 			fwrite(buf, 1, NLMSG_ALIGN(status), rth->dump_fp);
@@ -450,19 +466,11 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 	iov.iov_base = buf;
 	while (1) {
 		iov.iov_len = sizeof(buf);
-		status = recvmsg(rtnl->fd, &msg, 0);
 
-		if (status < 0) {
-			if (errno == EINTR || errno == EAGAIN)
-				continue;
-			fprintf(stderr, "netlink receive error %s (%d)\n",
-				strerror(errno), errno);
+		status = do_recvmsg(rtnl->fd, &msg);
+		if (status < 0)
 			return -1;
-		}
-		if (status == 0) {
-			fprintf(stderr, "EOF on netlink\n");
-			return -1;
-		}
+
 		if (msg.msg_namelen != sizeof(nladdr)) {
 			fprintf(stderr,
 				"sender address length == %d\n",
@@ -590,21 +598,13 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 		struct cmsghdr *cmsg;
 
 		iov.iov_len = sizeof(buf);
-		status = recvmsg(rtnl->fd, &msg, 0);
-
+		status = do_recvmsg(rtnl->fd, &msg);
 		if (status < 0) {
-			if (errno == EINTR || errno == EAGAIN)
-				continue;
-			fprintf(stderr, "netlink receive error %s (%d)\n",
-				strerror(errno), errno);
 			if (errno == ENOBUFS)
 				continue;
 			return -1;
 		}
-		if (status == 0) {
-			fprintf(stderr, "EOF on netlink\n");
-			return -1;
-		}
+
 		if (msg.msg_namelen != sizeof(nladdr)) {
 			fprintf(stderr,
 				"Sender address length == %d\n",
