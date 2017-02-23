@@ -65,6 +65,20 @@ struct bpf_cfg_in {
 	struct sock_filter *ops;
 };
 
+struct bpf_map_info {
+	__u32 map_type;
+	__u32 key_size;
+	__u32 value_size;
+	__u32 max_entries;
+	__u32 map_flags;
+};
+
+enum bpf_type {
+	BPF_TYPE_UNSPEC = 0,
+	BPF_TYPE_PROG,
+	BPF_TYPE_MAP,
+};
+
 /* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
 
 #define BPF_ALU64_REG(OP, DST, SRC)				\
@@ -260,6 +274,16 @@ int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
 
 int bpf_prog_attach_fd(int prog_fd, int target_fd, enum bpf_attach_type type);
 int bpf_prog_detach_fd(int target_fd, enum bpf_attach_type type);
+int bpf_prog_get_attach(enum bpf_prog_type ptype, __u32 arg1, __u32 arg2,
+			struct bpf_insn *insns, size_t size_insns);
+
+int bpf_get(__u32 fd, __u32 pid, enum bpf_type *type);
+int bpf_prog_get(int fd, __u32 *prog_type);
+int bpf_map_get(int fd, struct bpf_map_info *map);
+
+int bpf_map_lookup(int fd, const void *key, void *value, __u64 flags);
+int bpf_map_get_next_key(int fd, const void *key, void *next_key, __u64 flags);
+const char *bpf_map_type2str(__u32 map_type);
 
 #ifdef HAVE_ELF
 int bpf_send_map_fds(const char *path, const char *obj);
