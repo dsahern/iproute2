@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <errno.h>
@@ -139,6 +140,18 @@ static int bpf(int cmd, union bpf_attr *attr, unsigned int size)
 #endif
 }
 
+int bpf_map_lookup(int fd, const void *key, void *value, __u64 flags)
+{
+	union bpf_attr attr = {};
+
+	attr.map_fd = fd;
+	attr.key = bpf_ptr_to_u64(key);
+	attr.value = bpf_ptr_to_u64(value);
+	attr.flags = flags;
+
+	return bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
+}
+
 static int bpf_map_update(int fd, const void *key, const void *value,
 			  uint64_t flags)
 {
@@ -150,6 +163,41 @@ static int bpf_map_update(int fd, const void *key, const void *value,
 	attr.flags = flags;
 
 	return bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
+}
+
+int bpf_map_get_next_key(int fd, const void *key, void *next_key, __u64 flags)
+{
+	union bpf_attr attr = {};
+
+	attr.map_fd = fd;
+	attr.key = bpf_ptr_to_u64(key);
+	attr.next_key = bpf_ptr_to_u64(next_key);
+	attr.flags = flags;
+
+	return bpf(BPF_MAP_GET_NEXT_KEY, &attr, sizeof(attr));
+}
+
+const char * const map_type_strings[] = {
+	"BPF_MAP_TYPE_UNSPEC",
+	"hash",
+	"array",
+	"prog_array",
+	"PERF_EVENT_ARRAY",
+	"PERCPU_HASH",
+	"PERCPU_ARRAY",
+	"STACK_TRACE",
+	"CGROUP_ARRAY",
+	"LRU_HASH",
+	"LRU_PERCPU_HASH",
+	"LPM_TRIE",
+};
+
+const char *bpf_map_type2str(__u32 map_type)
+{
+	if (map_type > BPF_MAP_TYPE_LPM_TRIE)
+		return "<unknown map>";
+
+	return map_type_strings[map_type];
 }
 
 static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
@@ -866,6 +914,152 @@ out_map:
 out_prog:
 	close(prog_fd);
 	return ret;
+}
+
+static int read_map_fdinfo(int fd, struct bpf_map_info *map)
+{
+	char file[PATH_MAX];
+	unsigned int val;
+	char buf[4096];
+	FILE *fp;
+
+	memset(map, 0, sizeof(*map));
+
+	snprintf(file, sizeof(file), "/proc/%d/fdinfo/%d", getpid(), fd);
+
+	fp = fopen(file, "r");
+	if (!fp) {
+		fprintf(stderr, "Failed to open %s: %s\n",
+			file, strerror(errno));
+		return -EIO;
+	}
+
+	while (fgets(buf, sizeof(buf), fp)) {
+		if (sscanf(buf, "map_type:\t%u", &val) == 1)
+			map->map_type = val;
+		else if (sscanf(buf, "key_size:\t%u", &val) == 1)
+			map->key_size = val;
+		else if (sscanf(buf, "value_size:\t%u", &val) == 1)
+			map->value_size = val;
+		else if (sscanf(buf, "max_entries:\t%u", &val) == 1)
+			map->max_entries = val;
+		else if (sscanf(buf, "map_flags:\t%i", &val) == 1)
+			map->map_flags = val;
+	}
+
+	fclose(fp);
+
+	return 0;
+}
+
+int bpf_map_get(int fd, struct bpf_map_info *map)
+{
+	/* open fdinfo, read and parse map data */
+	if (read_map_fdinfo(fd, map)) {
+		fprintf(stderr, "Failed to read map data: %s\n", strerror(errno));
+		return -1;
+	}
+
+	return 0;
+}
+
+static int read_prog_fdinfo(int fd, __u32 *prog_type)
+{
+	char file[PATH_MAX];
+	unsigned int val;
+	char buf[4096];
+	FILE *fp;
+
+	snprintf(file, sizeof(file), "/proc/%d/fdinfo/%d", getpid(), fd);
+
+	fp = fopen(file, "r");
+	if (!fp) {
+		fprintf(stderr, "Failed to open %s: %s\n",
+			file, strerror(errno));
+		return -EIO;
+	}
+
+	while (fgets(buf, sizeof(buf), fp)) {
+		if (sscanf(buf, "prog_type:\t%u", &val) == 1)
+			*prog_type = val;
+	}
+
+	fclose(fp);
+
+	return 0;
+}
+
+int bpf_prog_get(int fd, __u32 *prog_type)
+{
+	*prog_type = 0;
+
+	if (read_prog_fdinfo(fd, prog_type) != 0) {
+		fprintf(stderr, "Failed to read fdinfo: %s\n", strerror(errno));
+		return -1;
+	}
+
+	return 0;
+}
+
+static int bpf_get_type(__u32 fd, __u32 pid, enum bpf_type *type)
+{
+	char file[PATH_MAX];
+	char buf[512];
+	ssize_t n;
+
+	*type = BPF_TYPE_UNSPEC;
+
+	snprintf(file, sizeof(file), "/proc/%d/fd/%d", pid, fd);
+
+	n = readlink(file, buf, sizeof(buf));
+	if (n < 0)
+		return -1;
+
+	if (strstr(buf, "bpf-prog"))
+		*type = BPF_TYPE_PROG;
+	else if (strstr(buf, "bpf-map"))
+		*type = BPF_TYPE_MAP;
+
+	return 0;
+}
+
+int bpf_get_pid(__u32 fd, __u32 pid, enum bpf_type *type)
+{
+	union bpf_attr attr = {
+		.bpf_get_type = BPF_GET_TYPE_PID,
+		.bpf_fd = fd,
+		.bpf_get_arg1 = pid,
+	};
+	int pfd;
+
+	if (bpf_get_type(fd, pid, type) != 0)
+		return -1;
+
+	pfd = bpf(BPF_OBJ_GET, &attr, sizeof(attr));
+	if (pfd < 0) {
+		fprintf(stderr, "Failed to get program: %s\n", strerror(errno));
+		return -1;
+	}
+
+	return pfd;
+}
+
+int bpf_get_cgroup(__u32 fd, __u32 attach_type)
+{
+	union bpf_attr attr = {
+		.bpf_get_type = BPF_GET_TYPE_CGROUP,
+		.bpf_fd = fd,
+		.bpf_get_arg1 = attach_type,
+	};
+	int pfd;
+
+	pfd = bpf(BPF_OBJ_GET, &attr, sizeof(attr));
+	if (pfd < 0) {
+		fprintf(stderr, "Failed to get program: %s\n", strerror(errno));
+		return -1;
+	}
+
+	return pfd;
 }
 
 int bpf_prog_attach_fd(int prog_fd, int target_fd, enum bpf_attach_type type)
