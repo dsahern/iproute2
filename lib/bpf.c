@@ -1023,16 +1023,21 @@ static int bpf_get_type(__u32 fd, __u32 pid, enum bpf_type *type)
 	return 0;
 }
 
-int bpf_get(__u32 fd, __u32 pid, enum bpf_type *type)
+int bpf_get(__u32 fd, __u32 pid, __u32 attach_type, enum bpf_type *type)
 {
 	union bpf_attr attr = {
 		.bpf_fd = fd,
 		.bpf_pid = pid,
+		.bpf_attach_type = attach_type,
 	};
 	int pfd;
 
-	if (bpf_get_type(fd, pid, type) != 0)
-		return -1;
+	if (pid) {
+		if (bpf_get_type(fd, pid, type) != 0)
+			return -1;
+	}
+	if (attach_type)
+		*type = BPF_TYPE_PROG;
 
 	pfd = bpf(BPF_OBJ_GET, &attr, sizeof(attr));
 	if (pfd < 0) {
@@ -1062,26 +1067,6 @@ int bpf_prog_detach_fd(int target_fd, enum bpf_attach_type type)
 	attr.attach_type = type;
 
 	return bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
-}
-
-int bpf_prog_get_attach(enum bpf_prog_type ptype, __u32 arg1, __u32 arg2,
-			struct bpf_insn *insns, size_t size_insns)
-{
-	union bpf_attr attr = {
-		.prog_type_get = ptype,
-		.get_arg1 = arg1,
-		.get_arg2 = arg2,
-	};
-	int err;
-
-	attr.insn_cnt_get = size_insns / sizeof(struct bpf_insn);
-	attr.insns_get = bpf_ptr_to_u64(insns);
-
-	err = bpf(BPF_GET_PROG, &attr, sizeof(attr));
-	if (err == 0)
-		err = attr.insn_cnt_get;
-
-	return err;
 }
 
 int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,

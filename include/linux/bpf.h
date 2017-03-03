@@ -91,7 +91,6 @@ enum bpf_cmd {
 	BPF_OBJ_GET,
 	BPF_PROG_ATTACH,
 	BPF_PROG_DETACH,
-	BPF_GET_PROG,
 };
 
 enum bpf_map_type {
@@ -190,6 +189,8 @@ union bpf_attr {
 		__aligned_u64	pathname;
 		__u32		bpf_fd;
 		__u32		bpf_pid;
+		__u32		bpf_attach_type;
+		__u32		bpf_target_fd;
 	};
 
 	struct { /* anonymous struct used by BPF_PROG_ATTACH/DETACH commands */
@@ -199,13 +200,6 @@ union bpf_attr {
 		__u32		attach_flags;
 	};
 
-	struct { /* anonymous struct used by BPF_PROG_ATTACH_GET command */
-		__u32		prog_type_get;  /* one of enum bpf_prog_type */
-		__u32		get_arg1;
-		__u32		get_arg2;
-		__u32		insn_cnt_get;
-		__aligned_u64	insns_get;
-	};
 } __attribute__((aligned(8)));
 
 /* BPF helper function descriptions:

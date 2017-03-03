@@ -277,7 +277,7 @@ int bpf_prog_detach_fd(int target_fd, enum bpf_attach_type type);
 int bpf_prog_get_attach(enum bpf_prog_type ptype, __u32 arg1, __u32 arg2,
 			struct bpf_insn *insns, size_t size_insns);
 
-int bpf_get(__u32 fd, __u32 pid, enum bpf_type *type);
+int bpf_get(__u32 fd, __u32 pid, __u32 attach_type, enum bpf_type *type);
 int bpf_prog_get(int fd, __u32 *prog_type);
 int bpf_map_get(int fd, struct bpf_map_info *map);
 
