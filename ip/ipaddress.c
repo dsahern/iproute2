@@ -1502,6 +1502,8 @@ static int ipaddr_flush(void)
 	return 1;
 }
 
+static int show_invisible = 0;
+
 static int iplink_filter_req(struct nlmsghdr *nlh, int reqlen)
 {
 	int err;
@@ -1528,6 +1530,9 @@ static int iplink_filter_req(struct nlmsghdr *nlh, int reqlen)
 
 		addattr_nest_end(nlh, linkinfo);
 	}
+
+	if (show_invisible)
+		addattr8(nlh, reqlen, IFLA_INVISIBLE, 1);
 
 	return 0;
 }
@@ -1659,6 +1664,8 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
 			} else {
 				filter.kind = *argv;
 			}
+		} else if (strcmp(*argv, "invisible") == 0) {
+			show_invisible = 1;
 		} else {
 			if (strcmp(*argv, "dev") == 0)
 				NEXT_ARG();
@@ -1677,6 +1684,8 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
 			fprintf(stderr, "Device \"%s\" does not exist.\n", filter_dev);
 			return -1;
 		}
+
+		show_invisible = 1;
 	}
 
 	if (action == IPADD_FLUSH)

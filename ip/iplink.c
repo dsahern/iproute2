@@ -95,6 +95,7 @@ void iplink_usage(void)
 		"			  [ nomaster ]\n"
 		"			  [ addrgenmode { eui64 | none | stable_secret | random } ]\n"
 		"	                  [ protodown { on | off } ]\n"
+		"			  [ invisible | visible ]\n"
 		"\n"
 		"       ip link show [ DEVICE | group GROUP ] [up] [master DEV] [vrf NAME] [type TYPE]\n");
 
@@ -806,6 +807,10 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
 				return on_off("protodown", *argv);
 			addattr8(&req->n, sizeof(*req), IFLA_PROTO_DOWN,
 				 proto_down);
+		} else if (matches(*argv, "invisible") == 0) {
+			addattr8(&req->n, sizeof(*req), IFLA_INVISIBLE, 1);
+		} else if (matches(*argv, "visible") == 0) {
+			addattr8(&req->n, sizeof(*req), IFLA_INVISIBLE, 0);
 		} else {
 			if (matches(*argv, "help") == 0)
 				usage();
