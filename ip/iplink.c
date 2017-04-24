@@ -605,7 +605,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
 				duparg("mtu", *argv);
 			if (get_integer(&mtu, *argv, 0))
 				invarg("Invalid \"mtu\" value\n", *argv);
-			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 4);
+			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 2);
 		} else if (strcmp(*argv, "xdp") == 0) {
 			NEXT_ARG();
 			if (xdp_parse(&argc, &argv, req))
@@ -836,6 +836,91 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
 	return ret - argc;
 }
 
+static const char *ifla_str[IFLA_MAX] = {
+	"IFLA_UNSPEC",
+	"IFLA_ADDRESS",
+	"IFLA_BROADCAST",
+	"IFLA_IFNAME",
+	"IFLA_MTU",
+};
+
+static const char *ifla_type2str(unsigned short ifla_type)
+{
+	static char buf[32];
+
+	if (ifla_type < ARRAY_SIZE(ifla_str))
+		return ifla_str[ifla_type];
+
+	sprintf(buf, "%u", ifla_type);
+
+	return buf;
+}
+
+static int iplink_extack_attr_err(struct nlmsghdr *n, __u32 off)
+{
+	struct ifinfomsg *ifi = NLMSG_DATA(n);
+	void *err_attr = (void *) n + off;
+	struct rtattr *tb[IFLA_MAX+1];
+	int len = n->nlmsg_len;
+	int i;
+
+	if (n->nlmsg_type != RTM_NEWLINK && n->nlmsg_type != RTM_DELLINK)
+		return 0;
+
+	len -= NLMSG_LENGTH(sizeof(*ifi));
+	if (len < 0)
+		return 0;
+
+	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
+
+	/* error with direct attribute */
+	for (i = 0; i < IFLA_MAX + 1; ++i) {
+		if (tb[i] && tb[i] == err_attr) {
+			fprintf(stderr,
+				"Error with rtnetlink attribute %s\n",
+				ifla_type2str(tb[i]->rta_type));
+			return 1;
+		}
+	}
+
+	/* error with nested attribute */
+	for (i = 0; i < IFLA_MAX; ++i) {
+		if (tb[i] && tb[i] < (struct rtattr *) err_attr
+		    && tb[i+1] > (struct rtattr *) err_attr) {
+			fprintf(stderr,
+				"Error with nested rtnetlink attribute\n");
+			return 1;
+		}
+	}
+
+	fprintf(stderr,
+		"netlink error with attribute %d\n",
+		((struct nlattr *) err_attr)->nla_type);
+
+	return 1;
+}
+
+static int iplink_extack(const char *errmsg, __u32 off,
+			 struct nlmsghdr *err_nlh)
+{
+	int rc = 0;
+
+	if (errmsg) {
+		rc++;
+		fprintf(stderr, "Error: %s\n", errmsg);
+	}
+
+	if (off && err_nlh) {
+		rc = iplink_extack_attr_err(err_nlh, off);
+	} else if (off) {
+		fprintf(stderr,
+			"netlink error with attribute at offset %u\n", off);
+		rc++;
+	}
+
+	return rc;
+}
+
 static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
 {
 	int len;
@@ -880,7 +965,8 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
 
 			req.i.ifi_index = 0;
 			addattr32(&req.n, sizeof(req), IFLA_GROUP, group);
-			if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
+			if (rtnl_talk_extack(&rth, &req.n, NULL, 0,
+					     iplink_extack) < 0)
 				return -2;
 			return 0;
 		}
@@ -971,7 +1057,7 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
 		return -1;
 	}
 
-	if (rtnl_talk(&rth, &req.n, NULL, 0) < 0)
+	if (rtnl_talk_extack(&rth, &req.n, NULL, 0, iplink_extack) < 0)
 		return -2;
 
 	return 0;
