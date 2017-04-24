@@ -64,6 +64,10 @@ int netns_identify_pid(const char *pidstr, char *name, int len);
 int iplink_get(unsigned int flags, char *name, __u32 filt_mask);
 int iplink_ifla_xstats(int argc, char **argv);
 
+int ip_linkaddr_list(int family, req_filter_fn_t filter_fn,
+		     struct nlmsg_chain *linfo, struct nlmsg_chain *ainfo);
+void free_nlmsg_chain(struct nlmsg_chain *info);
+
 static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
 {
 	__u32 table = r->rtm_table;
