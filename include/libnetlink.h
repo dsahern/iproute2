@@ -70,6 +70,9 @@ typedef int (*rtnl_listen_filter_t)(const struct sockaddr_nl *,
 				    struct rtnl_ctrl_data *,
 				    struct nlmsghdr *n, void *);
 
+typedef int (*nl_ext_ack_fn_t)(const char *errmsg, __u32 off,
+			       struct nlmsghdr *inner_nlh);
+
 struct rtnl_dump_filter_arg {
 	rtnl_filter_t filter;
 	void *arg1;
@@ -85,6 +88,9 @@ int rtnl_dump_filter_nc(struct rtnl_handle *rth,
 	rtnl_dump_filter_nc(rth, filter, arg, 0)
 int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 	      struct nlmsghdr *answer, size_t len)
+	__attribute__((warn_unused_result));
+int rtnl_talk_extack(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+	      struct nlmsghdr *answer, size_t len, nl_ext_ack_fn_t errfn)
 	__attribute__((warn_unused_result));
 int rtnl_talk_suppress_rtnl_errmsg(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 				   struct nlmsghdr *answer, size_t len)
