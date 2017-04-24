@@ -11,6 +11,11 @@
 #include <linux/neighbour.h>
 #include <linux/netconf.h>
 #include <arpa/inet.h>
+#include "nlattr.h"
+
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
 
 struct rtnl_handle {
 	int			fd;
@@ -225,5 +230,8 @@ int rtnl_from_file(FILE *, rtnl_listen_filter_t handler,
 /* User defined nlmsg_type which is used mostly for logging netlink
  * messages from dump file */
 #define NLMSG_TSTAMP	15
+
+int nla_parse(struct nlattr **tb, int maxtype, const struct nlattr *head,
+	      int len, const struct nla_policy *policy);
 
 #endif /* __LIBNETLINK_H__ */
