@@ -1062,6 +1062,25 @@ int bpf_get_cgroup(__u32 fd, __u32 attach_type)
 	return pfd;
 }
 
+int bpf_get_netdev_xdp(__u32 ifindex, __u32 flags)
+{
+	union bpf_attr attr = {
+		.bpf_get_type = BPF_GET_TYPE_NETDEV,
+		.bpf_get_arg1 = BPF_PROG_TYPE_XDP,
+		.bpf_get_arg2 = ifindex,
+		.bpf_get_arg3 = flags,
+	};
+	int pfd;
+
+	pfd = bpf(BPF_OBJ_GET, &attr, sizeof(attr));
+	if (pfd < 0) {
+		fprintf(stderr, "Failed to get program: %s\n", strerror(errno));
+		return -1;
+	}
+
+	return pfd;
+}
+
 int bpf_prog_attach_fd(int prog_fd, int target_fd, enum bpf_attach_type type)
 {
 	union bpf_attr attr = {};

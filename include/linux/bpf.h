@@ -140,6 +140,8 @@ enum bpf_get_type {
 	BPF_GET_TYPE_PID,
 	/* bpf_get_arg1 = bpf_attach_type, bpf_fd = cgroup fd */
 	BPF_GET_TYPE_CGROUP,
+	/* bpf_get_arg1 = BPF_PROG_TYPE, bpf_get_arg2 = device index */
+	BPF_GET_TYPE_NETDEV,
 };
 
 /* If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command

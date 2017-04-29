@@ -279,6 +279,8 @@ int bpf_prog_get_attach(enum bpf_prog_type ptype, __u32 arg1, __u32 arg2,
 
 int bpf_get_pid(__u32 fd, __u32 pid, enum bpf_type *type);
 int bpf_get_cgroup(__u32 fd, __u32 attach_type);
+int bpf_get_netdev_xdp(__u32 ifindex, __u32 flags);
+
 int bpf_prog_get(int fd, __u32 *prog_type);
 int bpf_map_get(int fd, struct bpf_map_info *map);
 
