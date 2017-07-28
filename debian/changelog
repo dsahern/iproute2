@@ -1,0 +1,9 @@
+iproute2 (4.12.0-dsa) RELEASED; urgency=medium
+
+  * Initial Release.
+
+ -- David Ahern <dsahern@gmail.com>  Fri, 28 Jul 2017 15:28:23 +0000
+
+Local variables:
+mode: debian-changelog
+End:

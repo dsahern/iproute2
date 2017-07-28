@@ -1,0 +1,40 @@
+#!/usr/bin/make -f
+
+DEB_VERSION := $(shell dpkg-parsechangelog | egrep '^Version:' | cut -f 2 -d ' ')
+
+DEB_BUILD_GNU_TYPE := $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+DEB_HOST_GNU_TYPE  := $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+
+ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
+	CROSS :=
+else
+	CROSS := CC=$(DEB_HOST_GNU_TYPE)-gcc
+endif
+
+%:
+	dh $@
+
+override_dh_clean:
+	dh_clean
+	make distclean
+	-rm -f doc/*.txt
+
+override_dh_installexamples:
+	dh_installexamples -p iproute2-doc examples/*
+
+override_dh_shlibdeps:
+	dh_shlibdeps -a -Xq_atm.so -Xm_xt.so -Xm_ipt.so
+	dh_shlibdeps -a -- -pipmods -dRecommends -e debian/iproute2/usr/lib/tc/m_xt.so -e debian/iproute2/usr/lib/tc/q_atm.so -xlibc6
+
+override_dh_auto_configure:
+	$(CROSS) dh_auto_configure
+
+override_dh_auto_build:
+	$(MAKE) -C doc all
+	$(MAKE) KERNEL_INCLUDE=./include $(CROSS)
+
+# bump version of the transitional packages...
+override_dh_gencontrol:
+	dh_gencontrol -piproute -- -v1:$(DEB_VERSION)
+	dh_gencontrol -piproute-doc -- -v1:$(DEB_VERSION)
+	dh_gencontrol --remaining-packages

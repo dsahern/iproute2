@@ -1,0 +1,70 @@
+Source: iproute2
+Section: net
+Priority: optional
+Maintainer: Debian iproute2 Maintainers <ah-iproute@debian.org>
+Uploaders: Roopa Prabuu <roopa@cumulusnetworks.com>
+Homepage: http://www.linux-foundation.org/en/Net:Iproute2
+Standards-Version: 3.9.5
+Build-Depends: bison,
+               cm-super-minimal,
+               debhelper (>= 8),
+               flex,
+               iptables-dev,
+               libatm1-dev,
+               libdb-dev,
+               libselinux1-dev,
+               linux-libc-dev,
+               linuxdoc-tools,
+               lynx | lynx-cur,
+               pkg-config,
+               texlive-fonts-recommended,
+               texlive-latex-base,
+               texlive-latex-recommended
+
+Package: iproute2
+Priority: important
+Architecture: any
+Provides: arpd
+Conflicts: arpd, iproute (<< 20130000-1)
+Replaces: iproute
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Recommends: ${ipmods:Recommends}
+Suggests: iproute2-doc
+Multi-Arch: foreign
+Description: networking and traffic control tools
+ The iproute2 suite is a collection of utilities for networking and
+ traffic control.
+ .
+ These tools communicate with the Linux kernel via the (rt)netlink
+ interface, providing advanced features not available through the
+ legacy net-tools commands 'ifconfig' and 'route'.
+
+Package: iproute2-doc
+Section: doc
+Architecture: all
+Conflicts: iproute-doc (<< 20130000-1)
+Replaces: iproute-doc
+Depends: ${misc:Depends}
+Description: networking and traffic control tools - documentation
+ The iproute2 suite is a collection of utilities for networking and
+ traffic control.
+ .
+ This package contains the documentation for iproute.
+
+Package: iproute
+Depends: iproute2, ${misc:Depends}
+Architecture: all
+Section: oldlibs
+Description: transitional dummy package for iproute2
+ This is a transitional dummy package to get upgrading systems to install
+ the iproute2 package. It can safely be removed once no other package
+ depends on it.
+
+Package: iproute-doc
+Depends: iproute2-doc, ${misc:Depends}
+Architecture: all
+Section: oldlibs
+Description: transitional dummy package for iproute2-doc
+ This is a transitional dummy package to get upgrading systems to install
+ the iproute2-doc package. It can safely be removed once no other package
+ depends on it.

@@ -1,0 +1,8 @@
+etc/* /etc
+ip/routef ip/routel /usr/bin
+ip/rtmon tc/tc misc/rtacct bridge/bridge /sbin
+misc/arpd /usr/sbin
+misc/lnstat misc/nstat /usr/bin/
+misc/ss ip/ip /bin
+netem/*.dist /usr/lib/tc
+tc/*.so /usr/lib/tc
