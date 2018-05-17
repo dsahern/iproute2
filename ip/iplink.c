@@ -60,6 +60,7 @@ void iplink_usage(void)
 			"                   [ mtu MTU ] [index IDX ]\n"
 			"                   [ numtxqueues QUEUE_COUNT ]\n"
 			"                   [ numrxqueues QUEUE_COUNT ]\n"
+			"                   [ lwd ]\n"
 			"                   type TYPE [ ARGS ]\n"
 			"\n"
 			"       ip link delete { DEVICE | dev DEVICE | group DEVGROUP } type TYPE [ ARGS ]\n"
@@ -595,6 +596,8 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req, char **type)
 		if (strcmp(*argv, "up") == 0) {
 			req->i.ifi_change |= IFF_UP;
 			req->i.ifi_flags |= IFF_UP;
+		} else if (matches(*argv, "lwd") == 0) {
+			addattr8(&req->n, sizeof(*req), IFLA_LWT_NETDEV, 1);
 		} else if (strcmp(*argv, "down") == 0) {
 			req->i.ifi_change |= IFF_UP;
 			req->i.ifi_flags &= ~IFF_UP;
