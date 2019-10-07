@@ -368,6 +368,8 @@ void print_rt_flags(FILE *fp, unsigned int flags)
 		print_string(PRINT_ANY, NULL, "%s ", "linkdown");
 	if (flags & RTNH_F_UNRESOLVED)
 		print_string(PRINT_ANY, NULL, "%s ", "unresolved");
+	if (flags & RTNH_F_MANAGE_NEIGH)
+		print_string(PRINT_ANY, NULL, "%s ", "managed_neigh");
 
 	close_json_array(PRINT_JSON, NULL);
 }
@@ -990,6 +992,8 @@ static int parse_one_nh(struct nlmsghdr *n, struct rtmsg *r,
 			rtnh->rtnh_hops = w - 1;
 		} else if (strcmp(*argv, "onlink") == 0) {
 			rtnh->rtnh_flags |= RTNH_F_ONLINK;
+		} else if (strcmp(*argv, "manage") == 0) {
+			rtnh->rtnh_flags |= RTNH_F_MANAGE_NEIGH;
 		} else if (matches(*argv, "realms") == 0) {
 			__u32 realm;
 
@@ -1362,6 +1366,8 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
 			addattr32(&req.n, sizeof(req), RTA_FLOW, realm);
 		} else if (strcmp(*argv, "onlink") == 0) {
 			req.r.rtm_flags |= RTNH_F_ONLINK;
+		} else if (strcmp(*argv, "manage") == 0) {
+			req.r.rtm_flags |= RTNH_F_MANAGE_NEIGH;
 		} else if (strcmp(*argv, "nexthop") == 0) {
 			nhs_ok = 1;
 			break;

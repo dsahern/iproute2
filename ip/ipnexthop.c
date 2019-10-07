@@ -387,6 +387,8 @@ static int ipnh_modify(int cmd, unsigned int flags, int argc, char **argv)
 				req.nhm.nh_family = AF_INET;
 		} else if (!strcmp(*argv, "onlink")) {
 			nh_flags |= RTNH_F_ONLINK;
+		} else if (strcmp(*argv, "manage") == 0) {
+			nh_flags |= RTNH_F_MANAGE_NEIGH;
 		} else if (!strcmp(*argv, "group")) {
 			NEXT_ARG();
 
