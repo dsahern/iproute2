@@ -165,7 +165,20 @@ out:
 	return rc;
 }
 
-static void print_nh_group(FILE *fp, const struct rtattr *grps_attr)
+static const char *grp_str[NEXTHOP_GRP_TYPE_MAX+1] = {
+	[NEXTHOP_GRP_TYPE_MPATH] = "multipath",
+};
+
+static const char *nh_grp_type_to_str(__u16 grp_type)
+{
+	if (grp_type > NEXTHOP_GRP_TYPE_MAX)
+		return "unknown";
+
+	return grp_str[grp_type];
+}
+
+static void print_nh_group(FILE *fp, const struct rtattr *grps_attr,
+			   __u16 grp_type)
 {
 	struct nexthop_grp *nhg = RTA_DATA(grps_attr);
 	int num = RTA_PAYLOAD(grps_attr) / sizeof(*nhg);
@@ -192,6 +205,14 @@ static void print_nh_group(FILE *fp, const struct rtattr *grps_attr)
 	}
 	print_string(PRINT_FP, NULL, "%s", " ");
 	close_json_array(PRINT_JSON, NULL);
+
+	/* backwards compatibility */
+	if (grp_type != NEXTHOP_GRP_TYPE_MPATH)
+		print_string(PRINT_FP, "group-type", "%s",
+			     nh_grp_type_to_str(grp_type));
+
+	print_string(PRINT_JSON, "group-type", "%s ",
+		     nh_grp_type_to_str(grp_type));
 }
 
 int print_nexthop(struct nlmsghdr *n, void *arg)
@@ -231,8 +252,13 @@ int print_nexthop(struct nlmsghdr *n, void *arg)
 		print_uint(PRINT_ANY, "id", "id %u ",
 			   rta_getattr_u32(tb[NHA_ID]));
 
-	if (tb[NHA_GROUP])
-		print_nh_group(fp, tb[NHA_GROUP]);
+	if (tb[NHA_GROUP]) {
+		__u16 grp_type = NEXTHOP_GRP_TYPE_MPATH;
+
+		if (tb[NHA_GROUP_TYPE])
+			grp_type = rta_getattr_u16(tb[NHA_GROUP_TYPE]);
+		print_nh_group(fp, tb[NHA_GROUP], grp_type);
+	}
 
 	if (tb[NHA_ENCAP])
 		lwt_print_encap(fp, tb[NHA_ENCAP_TYPE], tb[NHA_ENCAP]);
@@ -392,6 +418,10 @@ static int ipnh_modify(int cmd, unsigned int flags, int argc, char **argv)
 
 			if (add_nh_group_attr(&req.n, sizeof(req), *argv))
 				invarg("\"group\" value is invalid\n", *argv);
+		} else if (!strcmp(*argv, "mpath") ||
+			   !strcmp(*argv, "multipath")) {
+			addattr16(&req.n, sizeof(req), NHA_GROUP_TYPE,
+				  NEXTHOP_GRP_TYPE_MPATH);
 		} else if (matches(*argv, "protocol") == 0) {
 			__u32 prot;
 
