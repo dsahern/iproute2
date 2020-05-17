@@ -167,6 +167,7 @@ out:
 
 static const char *grp_str[NEXTHOP_GRP_TYPE_MAX+1] = {
 	[NEXTHOP_GRP_TYPE_MPATH] = "multipath",
+	[NEXTHOP_GRP_TYPE_ACTIVE_BACKUP] = "active-backup",
 };
 
 static const char *nh_grp_type_to_str(__u16 grp_type)
@@ -422,6 +423,10 @@ static int ipnh_modify(int cmd, unsigned int flags, int argc, char **argv)
 			   !strcmp(*argv, "multipath")) {
 			addattr16(&req.n, sizeof(req), NHA_GROUP_TYPE,
 				  NEXTHOP_GRP_TYPE_MPATH);
+		} else if (!strcmp(*argv, "ab") ||
+			   !strcmp(*argv, "active-backup")) {
+			addattr16(&req.n, sizeof(req), NHA_GROUP_TYPE,
+				  NEXTHOP_GRP_TYPE_ACTIVE_BACKUP);
 		} else if (matches(*argv, "protocol") == 0) {
 			__u32 prot;
 
