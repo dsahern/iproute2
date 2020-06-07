@@ -50,6 +50,9 @@ enum {
 	NHA_GROUPS,	/* flag; only return nexthop groups in dump */
 	NHA_MASTER,	/* u32;  only return nexthops with given master dev */
 
+	NHA_FDB,	/* flag; nexthop belongs to a bridge fdb */
+	/* if NHA_FDB is added, OIF, BLACKHOLE, ENCAP cannot be set */
+
 	__NHA_MAX,
 };
 
