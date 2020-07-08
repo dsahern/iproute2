@@ -41,10 +41,11 @@ static void usage(void)
 		"SELECTOR := [ id ID ] [ dev DEV ] [ vrf NAME ] [ master DEV ]\n"
 		"            [ groups ]\n"
 		"NH := { blackhole | [ via ADDRESS ] [ dev DEV ] [ onlink ]\n"
-		"      [ encap ENCAPTYPE ENCAPHDR ] | group GROUP ] }\n"
+		"      [ encap ENCAPTYPE ENCAPHDR ] | group GROUP GROUPTYPE ] }\n"
 		"GROUP := [ id[,weight]>/<id[,weight]>/... ]\n"
 		"ENCAPTYPE := [ mpls ]\n"
-		"ENCAPHDR := [ MPLSLABEL ]\n");
+		"ENCAPHDR := [ MPLSLABEL ]\n"
+		"GROUPTYPE := { multipath | active-backup }\n");
 	exit(-1);
 }
 
